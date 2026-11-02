@@ -232,7 +232,7 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   // Main weather service down: switch to the backup
   openMeteoDown = true;
   await page.click('[data-act="refresh"]');
-  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('backup source'), null, { timeout: 12000 });
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('Backup weather'), null, { timeout: 12000 });
   assert(await page.locator('.hero h1').count() === 1, 'backup weather runs the whole app');
   assert((await page.textContent('.foot')).includes('Deutscher Wetterdienst'), 'backup source is credited');
   openMeteoDown = false;

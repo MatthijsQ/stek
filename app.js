@@ -150,7 +150,7 @@
     if (!w) { el.textContent = state.error || ''; return; }
     const age = Date.now() - w.fetchedAt;
     const stamp = (age < DAY ? '' : weekday(w.fetchedAt) + ' ') + clock(w.fetchedAt);
-    el.textContent = state.error ? `${state.error}, saved ${stamp}` : `Live${w.source === 'brightsky' ? ' (backup source)' : ' weather'}, updated ${stamp}`;
+    el.textContent = state.error ? `${state.error}, saved ${stamp}` : (w.source === 'brightsky' ? `Backup weather, ${stamp}` : `Live weather, updated ${stamp}`);
   }
   const cond = (t, type) => E.conditionsAt(state.weather, t, { type: type || 'shipcanal', measure: state.measure });
 
