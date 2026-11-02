@@ -11,6 +11,7 @@ A private fishing app for Groningen: live conditions, a bite score per fish, spo
 
 - `data.js`: species, spots, rules
 - `engine.js`: scoring, water temperature estimate, learning, badges
+- `fish.js`: a silhouette for each fish
 - `app.js`, `styles.css`, `index.html`: the app
 - `sw.js`, `manifest.webmanifest`: offline use and home-screen install
 

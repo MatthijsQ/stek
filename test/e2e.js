@@ -73,6 +73,13 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   assert((await page.textContent('.sectionhead .aside')) === 'Carp', 'the 48-hour chart follows the fish');
   assert((await page.locator('.pickgrid .chip[aria-pressed="true"]').textContent()) === 'Carp', 'picked fish is marked');
   assert(/carp guide/.test(await page.textContent('#view')), 'how-to follows the fish');
+  assert((await page.locator('.meter > svg').getAttribute('aria-label')).startsWith('Carp'), 'score picture shows the fish');
+  assert(await page.textContent('#view').then((t) => !t.includes('Also on')), 'Also on is gone');
+  assert(await page.evaluate(() => { const c = document.querySelector('.pickgrid'), h = [...document.querySelectorAll('.block')].find((b) => b.textContent.includes('How to fish it')); return !!(h.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING); }), 'how to fish it comes before the picker');
+  const toneOf = (name) => page.locator(`.pickgrid .chip:text-is("${name}")`).evaluate((c) => c.className);
+  assert(/pick-off/.test(await toneOf('Eel')), 'protected fish is grey');
+  assert(await page.evaluate(() => { const col = (n) => getComputedStyle([...document.querySelectorAll('.pickgrid .chip')].find((c) => c.textContent === n)).color; return col('Eel') !== col('Zander'); }), 'names have different colours');
+  assert(new Set(await page.locator('.pickgrid .chip').evaluateAll((a) => a.map((c) => c.className.match(/pick-\w+/)[0]))).size >= 2, 'picker colours vary with the score');
   await shot('10-focus-carp');
   await page.locator('.pickgrid .chip:text-is("Eel")').click();
   await page.waitForTimeout(100);

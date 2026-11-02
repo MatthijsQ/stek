@@ -185,22 +185,12 @@
   const alertHTML = (a) => a.map(([tone, title, text]) => `<div class="alert ${tone}"><span class="sym" aria-hidden="true">${tone === 'info' ? 'i' : '!'}</span><div><strong>${esc(title)}</strong>${esc(text)}</div></div>`).join('');
 
   /* ---------- Pictures ---------- */
-  function floatMeter(score) {
-    const depth = -24 + score * .5; /* the better the score, the deeper the float pulls */
-    const rings = score >= 62 ? 3 : score >= 45 ? 2 : 1;
-    let ringSvg = '';
-    for (let i = 0; i < rings; i++) ringSvg += `<ellipse cx="56" cy="78" rx="${16 + i * 13}" ry="${3 + i * 1.6}" fill="none" stroke="var(--bodyf)" stroke-opacity="${.75 - i * .2}" stroke-width="1.5"/>`;
-    return `<svg viewBox="0 0 112 128" role="img" aria-label="Bite meter: ${score} out of 100"><rect width="112" height="78" fill="var(--surface2)"/>
-      <g transform="translate(0 ${depth})"><g class="float-group"><rect x="52" y="10" width="8" height="30" rx="3.5" fill="var(--float)"/><rect x="52" y="36" width="8" height="5" fill="var(--bodyf)"/><ellipse cx="56" cy="62" rx="13" ry="23" fill="var(--bodyf)" stroke="var(--ink)" stroke-opacity=".35"/><rect x="55" y="84" width="2" height="26" fill="var(--bodyf)"/></g></g>
-      <rect y="78" width="112" height="50" fill="var(--water)" fill-opacity=".93"/>${ringSvg}</svg>`;
+  function fishMeter(sp, scoreText) {
+    /* Same colours as the old bobber: orange, off-white, canal water. */
+    const fish = window.StekFish.svg(sp.id, { body: 'var(--bodyf)', fin: 'var(--float)', eye: 'var(--ink)', line: 'var(--ink)', attrs: 'x="4" y="38" width="140" height="74.7"' });
+    return `<svg viewBox="0 0 148 128" role="img" aria-label="${esc(sp.name)}: ${esc(scoreText)}"><rect width="148" height="30" fill="var(--surface2)"/><rect y="30" width="148" height="98" fill="var(--water)"/><path d="M0 30q9 -4 18.500 0t18.500 0t18.500 0t18.500 0t18.500 0t18.500 0t18.500 0t18.500 0" fill="none" stroke="var(--bodyf)" stroke-opacity=".7" stroke-width="1.5"/><g class="float-group">${fish}</g></svg>`;
   }
-  const FISH = {
-    long: '<path d="M4 20c10-8 28-10 46-8 14 1 22 5 28 8l14-7-3 7 3 7-14-7c-6 3-14 7-28 8-18 2-36 0-46-8Z"/>',
-    std: '<path d="M8 20c8-10 24-14 38-12 12 2 20 7 26 12l14-9-4 9 4 9-14-9c-6 5-14 10-26 12-14 2-30-2-38-12Z"/>',
-    deep: '<path d="M10 20C16 6 32 2 46 4c12 2 20 9 26 16l14-10-5 10 5 10-14-10c-6 7-14 14-26 16-14 2-30-2-36-16Z"/>',
-    eel: '<path d="M4 20c8-7 15-7 22-3 8 4 14 6 22 2 8-5 16-6 24-3 6 2 12 3 16 4-5 3-11 3-17 2-8-2-15-1-21 3-8 5-16 3-24-1-7-4-14-3-22 2Z"/>'
-  };
-  const fishSvg = (shape) => `<svg viewBox="0 0 92 40" fill="currentColor" aria-hidden="true">${FISH[shape] || FISH.std}</svg>`;
+  const fishSvg = (id) => window.StekFish.svg(id, { body: 'currentColor', fin: 'currentColor', eye: 'var(--surface)', line: 'var(--surface)', detail: false });
 
   function hourStrip(sp, opts) {
     opts = opts || {};
@@ -242,7 +232,8 @@
     const shown = state.focus ? rows.find((r) => r.sp.id === state.focus) : best;
     const stripSp = shown ? shown.sp : rows[0].sp;
     /* Pick a fish: every fish, best first, and the whole screen follows it. */
-    const picker = `<section class="block"><h2>Check out statistics for</h2><div class="pickgrid">${rows.map((r) => `<button class="chip" data-act="focus" data-id="${r.sp.id}" aria-pressed="${!!shown && r.sp.id === shown.sp.id}">${esc(r.sp.name)}</button>`).join('')}</div></section>`;
+    const pickTone = (r) => (r.recommended ? r.band.tone : 'off');
+    const picker = `<section class="block"><h2>Check out statistics for</h2><div class="pickgrid">${rows.map((r) => `<button class="chip pick-${pickTone(r)}" data-act="focus" data-id="${r.sp.id}" aria-label="${esc(r.sp.name)}: ${r.recommended ? esc(r.band.label) : esc(r.legal.notes[0] || 'protected')}" aria-pressed="${!!shown && r.sp.id === shown.sp.id}">${esc(r.sp.name)}</button>`).join('')}</div><div class="legend"><span><i class="bg-good"></i>Good</span><span><i class="bg-warn"></i>Fair</span><span><i class="bg-bad"></i>Slow</span><span><i class="offkey"></i>Closed or protected</span></div></section>`;
     const backLinks = `${isNow ? '' : '<button class="btn link inline" data-act="now">Back to now</button>'}${state.focus ? '<button class="btn link inline" data-act="focus-clear">Back to top pick</button>' : ''}`;
     let hero;
     if (!shown) {
@@ -254,19 +245,17 @@
       const wording = { excellent: 'Excellent fishing', good: 'Good fishing', fair: 'Fair fishing', slow: 'Slow fishing', poor: 'Poor fishing' }[shown.band.key];
       const title = shown.recommended ? `${wording} for ${fish}` : !shown.legal.legal ? `${fishCap} is closed right now` : !shown.legal.method ? `${fishCap} is not possible right now` : `${fishCap} is protected`;
       const stateNote = shown.recommended ? '' : esc(shown.legal.notes[0] || (sp.rules && sp.rules.protect) || 'Not recommended as a target.');
-      const others = rows.filter((r) => r.recommended && r !== shown).slice(0, 3).map((r) => `<button class="chip" data-act="focus" data-id="${r.sp.id}">${esc(r.sp.name)} ${r.score}</button>`).join('');
       hero = `<section class="hero">
         <div class="eyebrow num"><span>${esc(head)}</span>${backLinks}</div>
         <h1>${title}</h1>
-        <div class="meter">${floatMeter(shown.recommended ? shown.score : 0)}<div class="meter-copy"><div class="meter-score">${shown.recommended ? shown.score : '—'}<small> /100</small></div><div class="meter-label">${shown.recommended ? `<span class="dot bg-${shown.band.tone}"></span>${shown.band.label} right ${isNow ? 'now' : 'then'} ${adj}` : stateNote}</div></div></div>
+        <div class="meter">${fishMeter(sp, shown.recommended ? shown.score + ' out of 100' : stateNote)}<div class="meter-copy"><div class="meter-score">${shown.recommended ? shown.score : '—'}<small> /100</small></div><div class="meter-label">${shown.recommended ? `<span class="dot bg-${shown.band.tone}"></span>${shown.band.label} right ${isNow ? 'now' : 'then'} ${adj}` : stateNote}</div></div></div>
         ${shown.recommended ? `<ul class="why">${reasons.pos.map((r) => `<li><span class="mark tone-good" aria-label="Helps">+</span><span>${esc(r.text)}</span></li>`).join('')}${reasons.neg.map((r) => `<li><span class="mark tone-bad" aria-label="Hurts">−</span><span>${esc(r.text)}</span></li>`).join('')}</ul>` : ''}
         ${win ? `<p class="num"><strong>Best in the next 36 hours:</strong> ${esc(windowText(win))} (${win.score})</p>` : ''}
-        ${others ? `<div><div class="label">Also on</div><div class="chips" style="margin-top:5px">${others}</div></div>` : ''}
       </section>
       ${alerts.length ? `<div style="display:grid;gap:8px">${alertHTML(alerts)}</div>` : ''}
-      ${picker}
       <section class="block"><div class="label">How to fish it</div><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div>
-        <button class="btn" data-act="species" data-id="${sp.id}">Full ${esc(sp.name.toLowerCase())} guide and rules</button></section>`;
+        <button class="btn" data-act="species" data-id="${sp.id}">Full ${esc(sp.name.toLowerCase())} guide and rules</button></section>
+      ${picker}`;
     }
     return `${installBanner()}${hero}
       <section class="block"><div class="sectionhead"><h2>Next 48 hours</h2><span class="aside">${esc(stripSp.name)}</span></div>${hourStrip(stripSp)}<p class="small muted">Tap an hour to see that moment.</p></section>
@@ -390,7 +379,7 @@
       if (k !== lastDay) { flush(); list += `<div class="label datehead">${esc(dayLabel(r.ts))}</div>`; lastDay = k; }
       const sp = E.speciesById(r.speciesId), spot = spotById(r.spotId), name = r.type === 'blank' ? 'No catch' : sp ? sp.name : 'Other fish';
       const bits = r.type === 'blank' ? [r.durationMin ? r.durationMin + ' min' : null, r.targetId && E.speciesById(r.targetId) ? 'Target: ' + E.speciesById(r.targetId).name : null] : [r.lengthCm ? r.lengthCm + ' cm' : null, r.weightG ? weight(r.weightG) : null, r.bait];
-      const pic = r.hasPhoto ? `<img class="thumb" data-photo="${esc(r.id)}" alt="">` : `<span class="thumb">${r.type === 'blank' ? '—' : fishSvg(sp ? sp.shape : 'std').replace('<svg', '<svg width="50"')}</span>`;
+      const pic = r.hasPhoto ? `<img class="thumb" data-photo="${esc(r.id)}" alt="">` : `<span class="thumb">${r.type === 'blank' ? '—' : fishSvg(sp ? sp.id : 'roach').replace('<svg', '<svg width="56"')}</span>`;
       group += `<button class="entry" data-act="record" data-id="${esc(r.id)}">${pic}<span><span class="title">${esc(name)}</span><span class="sub num">${clock(r.ts)} · ${esc(spot ? spot.name : r.spotName || 'Unknown spot')}</span><span class="sub num">${esc(bits.filter(Boolean).join(' · '))}</span></span></button>`;
     });
     flush();
@@ -399,7 +388,7 @@
       <div class="bigactions"><button class="btn primary" data-act="add-catch">Log a catch</button><button class="btn" data-act="add-blank">No catch today</button></div></section>
       ${backupOld ? `<div class="alert warn"><span class="sym" aria-hidden="true">!</span><div><strong>Time for a backup</strong>Your log lives only on this phone.<div class="btnrow" style="margin-top:8px"><button class="btn" data-act="export">Save backup file</button></div></div></div>` : ''}
       ${rec.length ? `<div class="stats num"><div class="stat"><b>${st.catches.length}</b><span>${st.catches.length === 1 ? 'catch' : 'catches'}</span></div><div class="stat"><b>${st.speciesCount}</b><span>species</span></div><div class="stat"><b>${st.trips.length}</b><span>${st.trips.length === 1 ? 'trip' : 'trips'}</span></div><div class="stat"><b>${long ? long.lengthCm : '-'}</b><span>longest, cm</span></div><div class="stat"><b>${biggest ? round(biggest.weightG / 1000, 1) : '-'}</b><span>heaviest, kg</span></div><div class="stat"><b>${st.streak}</b><span>week streak</span></div></div>${list}`
-        : `<div class="block empty">${fishSvg('long').replace('<svg', '<svg width="120"')}<h2>Your log starts here</h2><p>Log your first fish, or a trip with no catch. Stek saves the weather with every entry, and your scores get more personal over time.</p></div>`}`;
+        : `<div class="block empty">${fishSvg('pike').replace('<svg', '<svg width="130"')}<h2>Your log starts here</h2><p>Log your first fish, or a trip with no catch. Stek saves the weather with every entry, and your scores get more personal over time.</p></div>`}`;
   }
 
   /* ---------- Trophies ---------- */
@@ -407,7 +396,7 @@
     const p = E.computeProgress(state.records), earned = new Set(p.earned.map((a) => a.id));
     const dex = D.SPECIES.map((sp) => {
       const pb = p.stats.pbs[sp.id];
-      return `<button class="dexitem ${pb ? '' : 'locked'}" data-act="species" data-id="${sp.id}">${fishSvg(sp.shape)}<b>${pb ? esc(sp.name) : '???'}</b><span class="num">${pb ? (pb.lengthCm ? pb.lengthCm + ' cm' : pb.count + ' caught') + (pb.weightG ? ' · ' + weight(pb.weightG) : '') : esc(sp.nl === 'Paling' || sp.nl === 'Meerval' ? 'Protected' : 'Not caught')}</span></button>`;
+      return `<button class="dexitem ${pb ? '' : 'locked'}" data-act="species" data-id="${sp.id}">${fishSvg(sp.id)}<b>${pb ? esc(sp.name) : '???'}</b><span class="num">${pb ? (pb.lengthCm ? pb.lengthCm + ' cm' : pb.count + ' caught') + (pb.weightG ? ' · ' + weight(pb.weightG) : '') : esc(sp.nl === 'Paling' || sp.nl === 'Meerval' ? 'Protected' : 'Not caught')}</span></button>`;
     }).join('');
     const ach = [...E.ACHIEVEMENTS].sort((a, b) => (earned.has(b.id) ? 1 : 0) - (earned.has(a.id) ? 1 : 0)).map((a) => `<div class="ach ${earned.has(a.id) ? 'done' : ''}"><span class="badge" aria-hidden="true">${earned.has(a.id) ? '★' : ''}</span><span><span class="name">${esc(a.name)}</span><span class="desc">${esc(a.text)}</span></span><span class="pts">${a.xp} XP</span></div>`).join('');
     return `<section class="levelcard"><span class="label" style="color:inherit;opacity:.8">Level ${p.level}</span><div class="lv">${esc(p.title)}</div>
@@ -448,7 +437,7 @@
     if (state.settings.permit === 'kleine') ruleLines.push('With the Kleine VISpas, all fish go back and only the listed baits are allowed.');
     else ruleLines.push(D.LEGAL.takeTotal);
     openSheet(`${sp.name}`, `<p class="muted">${esc(sp.nl)} · ${esc(sp.group)}</p>
-      <div class="meter">${floatMeter(r.score)}<div class="meter-copy"><div class="meter-score">${r.legal.ok && sp.recommend ? r.score : '—'}<small> /100</small></div><div class="meter-label"><span class="dot bg-${r.band.tone}"></span>${r.legal.ok && sp.recommend ? r.band.label : esc(r.legal.notes[0] || 'Not recommended')}</div></div></div>
+      <div class="meter">${fishMeter(sp, r.legal.ok && sp.recommend ? r.score + ' out of 100' : (r.legal.notes[0] || 'Not recommended'))}<div class="meter-copy"><div class="meter-score">${r.legal.ok && sp.recommend ? r.score : '—'}<small> /100</small></div><div class="meter-label"><span class="dot bg-${r.band.tone}"></span>${r.legal.ok && sp.recommend ? r.band.label : esc(r.legal.notes[0] || 'Not recommended')}</div></div></div>
       ${win && sp.recommend ? `<p class="num"><strong>Best next:</strong> ${esc(windowText(win))} (${win.score})</p>` : ''}
       ${pb ? `<p class="num"><strong>Your best:</strong> ${pb.lengthCm ? pb.lengthCm + ' cm' : ''}${pb.lengthCm && pb.weightG ? ', ' : ''}${pb.weightG ? weight(pb.weightG) : ''} from ${pb.count} logged</p>` : ''}
       <section class="block"><h3>Rules</h3><ul style="margin:0;padding-left:20px;display:grid;gap:4px">${ruleLines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><a class="btn" href="${LINKS.visplanner}" target="_blank" rel="noopener">Check this water in VISplanner</a></section>

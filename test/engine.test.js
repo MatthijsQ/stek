@@ -271,4 +271,10 @@ test('backup source converts into the same weather shape', () => {
   assert.ok(c.feels <= 12);
   assert.ok(c.water > 10);
 });
+test('every fish has its own silhouette', () => {
+  const F = require('../fish.js');
+  const pics = D.SPECIES.map((sp) => { assert.ok(F.ids.includes(sp.id), sp.id); return F.svg(sp.id); });
+  assert.strictEqual(new Set(pics).size, D.SPECIES.length);
+  pics.forEach((p) => assert.ok(!/NaN|undefined/.test(p)));
+});
 console.log(`\n${passed} tests passed`);

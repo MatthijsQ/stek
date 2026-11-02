@@ -81,7 +81,7 @@
      light: how well it feeds by time of day. cloud: extra on an overcast day.
      press: barometer sensitivity. calm: score in flat calm. rain: score in light rain. */
   const SPECIES = [
-    { id: 'pike', name: 'Pike', nl: 'Snoek', group: 'Predator', shape: 'long', recommend: true, kleine: false,
+    { id: 'pike', name: 'Pike', nl: 'Snoek', group: 'Predator', recommend: true, kleine: false,
       temp: [2, 6, 16, 24], light: { dawn: .95, day: .6, dusk: .9, night: .12 }, cloud: .15, press: 1, calm: .6, rain: .8,
       months: [.8, .7, .25, .15, .3, .45, .4, .5, .75, 1, 1, .9],
       habitat: { shipcanal: .6, harbour: .75, diep: .8, river: .7, shallowlake: .95, pit: .6, polder: .75 },
@@ -91,7 +91,7 @@
         warm: { where: 'Shade, deeper water and anywhere with fresh oxygen. Dawn is your best chance.', rig: 'Topwater or a shallow lure early on. Keep the fight short and always use a wire trace.', bait: 'Fast, visible lures.', tip: 'Warm water is hard on pike. Unhook quickly in the water, or stop fishing for pike on very warm days.' }
       },
       rules: { min: 45, closed: 'pike', take: 'Keep at most 1 between 45 and 80 cm.' } },
-    { id: 'zander', name: 'Zander', nl: 'Snoekbaars', group: 'Predator', shape: 'long', recommend: true, kleine: false,
+    { id: 'zander', name: 'Zander', nl: 'Snoekbaars', group: 'Predator', recommend: true, kleine: false,
       temp: [3, 8, 20, 27], light: { dawn: .9, day: .35, dusk: 1, night: .85 }, cloud: .3, press: .7, calm: .7, rain: .8,
       months: [.6, .6, .35, .15, .2, .6, .7, .8, .9, 1, .9, .7],
       habitat: { shipcanal: 1, harbour: .9, diep: .5, river: .7, shallowlake: .6, pit: .7, polder: .2 },
@@ -101,7 +101,7 @@
         warm: { where: 'Shallow stone edges after dark and deeper shade during the day.', rig: 'Light jig or dead bait. Keep fights short in warm water.', bait: 'Slim shads, small dead fish.', tip: 'Dusk and night beat the middle of the day by a wide margin.' }
       },
       rules: { min: 42, closed: 'zander', take: 'Keep at most 2 between 42 and 70 cm.' } },
-    { id: 'perch', name: 'Perch', nl: 'Baars', group: 'Predator', shape: 'std', recommend: true, kleine: true,
+    { id: 'perch', name: 'Perch', nl: 'Baars', group: 'Predator', recommend: true, kleine: true,
       temp: [2, 8, 22, 28], light: { dawn: .85, day: .7, dusk: .8, night: .1 }, cloud: .05, press: .6, calm: .8, rain: .7,
       months: [.55, .55, .35, .2, .3, .6, .7, .8, .9, 1, .9, .7],
       habitat: { harbour: 1, shipcanal: .8, diep: .7, river: .7, shallowlake: .6, pit: .7, polder: .5 },
@@ -111,7 +111,7 @@
         warm: { where: 'Shade near structure, and open water where small fish scatter.', rig: 'Small crankbait or spinner.', bait: 'Fast small lures early on, worm later.', tip: 'Watch for small fish jumping. It often means perch are hunting.' }
       },
       rules: { min: 22, closed: 'zander', take: 'Keep at most 3 between 22 and 45 cm.' } },
-    { id: 'asp', name: 'Asp', nl: 'Roofblei', group: 'Predator', shape: 'std', recommend: true, kleine: false,
+    { id: 'asp', name: 'Asp', nl: 'Roofblei', group: 'Predator', recommend: true, kleine: false,
       temp: [8, 14, 24, 28], light: { dawn: .9, day: .55, dusk: .8, night: .05 }, cloud: 0, press: .4, calm: .7, rain: .6,
       months: [.1, .1, .2, .3, .6, .9, 1, 1, .9, .6, .3, .1],
       habitat: { harbour: .7, shipcanal: .8, diep: .4, river: .6, shallowlake: .3, pit: .3, polder: .1 },
@@ -121,7 +121,7 @@
         warm: { where: 'Open water and fast surface action, mainly early in the day.', rig: 'Long-casting metal lure on a fast retrieve.', bait: 'Silver and white lures.', tip: 'Speed matters. If you cannot get a follow, reel faster.' }
       },
       rules: {} },
-    { id: 'ruffe', name: 'Ruffe', nl: 'Pos', group: 'Bottom fish', shape: 'std', recommend: true, kleine: true,
+    { id: 'ruffe', name: 'Ruffe', nl: 'Pos', group: 'Bottom fish', recommend: true, kleine: true,
       temp: [2, 8, 20, 26], light: { dawn: .7, day: .6, dusk: .8, night: .4 }, cloud: .1, press: .2, calm: .7, rain: .7, months: allYear,
       habitat: { shipcanal: .9, harbour: .85, diep: .6, river: .7, shallowlake: .5, pit: .5, polder: .3 },
       how: {
@@ -130,7 +130,7 @@
         warm: { where: 'Deeper water and shade.', rig: 'Light bottom rig.', bait: 'Worm.', tip: 'Handle with care because of the spiny fin.' }
       },
       rules: {} },
-    { id: 'carp', name: 'Carp', nl: 'Karper', group: 'Whitefish', shape: 'deep', recommend: true, kleine: true,
+    { id: 'carp', name: 'Carp', nl: 'Karper', group: 'Whitefish', recommend: true, kleine: true,
       temp: [8, 16, 26, 30], light: { dawn: .95, day: .55, dusk: .8, night: .8 }, cloud: .1, press: .5, calm: 1, rain: .8,
       months: [.1, .1, .2, .4, .7, .9, 1, 1, .9, .6, .3, .1],
       habitat: { shallowlake: 1, pit: .9, harbour: .5, shipcanal: .6, diep: .6, river: .5, polder: .6 },
@@ -140,7 +140,7 @@
         warm: { where: 'Plants, shade and surface fish on calm days.', rig: 'Floater rig or a bottom rig at dusk.', bait: 'Floating bread, sweetcorn, boilie.', tip: 'Dawn and night are usually better. Use a landing net and mat.' }
       },
       rules: { release: true } },
-    { id: 'crucian', name: 'Crucian carp', nl: 'Kroeskarper', group: 'Whitefish', shape: 'deep', recommend: true, kleine: true,
+    { id: 'crucian', name: 'Crucian carp', nl: 'Kroeskarper', group: 'Whitefish', recommend: true, kleine: true,
       temp: [10, 16, 25, 30], light: { dawn: .9, day: .55, dusk: .8, night: .3 }, cloud: .1, press: .3, calm: 1, rain: .7,
       months: [.1, .1, .2, .4, .8, 1, 1, .9, .7, .4, .2, .1],
       habitat: { polder: 1, shallowlake: .7, diep: .6, harbour: .2, shipcanal: .15, river: .3, pit: .3 },
@@ -150,7 +150,7 @@
         warm: { where: 'Close to plants, mainly at dawn.', rig: 'Delicate float.', bait: 'Bread or sweetcorn.', tip: 'A vulnerable species, so release it with care.' }
       },
       rules: { releaseAdvised: true } },
-    { id: 'tench', name: 'Tench', nl: 'Zeelt', group: 'Whitefish', shape: 'std', recommend: true, kleine: true,
+    { id: 'tench', name: 'Tench', nl: 'Zeelt', group: 'Whitefish', recommend: true, kleine: true,
       temp: [10, 16, 24, 28], light: { dawn: 1, day: .35, dusk: .8, night: .3 }, cloud: .15, press: .4, calm: 1, rain: .8,
       months: [.05, .05, .1, .3, .9, 1, .9, .8, .6, .3, .1, .05],
       habitat: { polder: 1, shallowlake: .9, diep: .75, harbour: .3, shipcanal: .25, river: .4, pit: .5 },
@@ -160,7 +160,7 @@
         warm: { where: 'Plant-rich water at first light.', rig: 'Float close to the plants.', bait: 'Sweetcorn or worm.', tip: 'Tench handle low oxygen better than most fish, but the bite usually ends once the sun is up.' }
       },
       rules: { min: 25 } },
-    { id: 'bream', name: 'Bream', nl: 'Brasem', group: 'Whitefish', shape: 'deep', recommend: true, kleine: true,
+    { id: 'bream', name: 'Bream', nl: 'Brasem', group: 'Whitefish', recommend: true, kleine: true,
       temp: [5, 12, 22, 27], light: { dawn: .9, day: .55, dusk: 1, night: .75 }, cloud: .2, press: .5, calm: .7, rain: .8,
       months: [.35, .35, .45, .6, .8, .95, 1, 1, .9, .75, .5, .4],
       habitat: { shipcanal: .95, harbour: .8, diep: .7, river: .8, shallowlake: .8, pit: .7, polder: .35 },
@@ -170,7 +170,7 @@
         warm: { where: 'Far side of the canal and deeper water in daytime, closer at dusk.', rig: 'Feeder or float.', bait: 'Sweetcorn, worm.', tip: 'Evening is usually best. Note: keepnets may only be used from sunrise to sunset.' }
       },
       rules: {} },
-    { id: 'silver', name: 'Silver bream', nl: 'Kolblei', group: 'Whitefish', shape: 'deep', recommend: true, kleine: true,
+    { id: 'silver', name: 'Silver bream', nl: 'Kolblei', group: 'Whitefish', recommend: true, kleine: true,
       temp: [5, 11, 22, 27], light: { dawn: .85, day: .6, dusk: .95, night: .5 }, cloud: .15, press: .4, calm: .7, rain: .8,
       months: [.35, .35, .45, .6, .8, .9, 1, 1, .9, .7, .5, .4],
       habitat: { shipcanal: .85, harbour: .8, diep: .75, river: .75, shallowlake: .7, pit: .6, polder: .4 },
@@ -180,7 +180,7 @@
         warm: { where: 'Edges and shade.', rig: 'Light float.', bait: 'Maggots.', tip: 'Often mixed with young bream, so look closely when you log it.' }
       },
       rules: {} },
-    { id: 'roach', name: 'Roach', nl: 'Blankvoorn', group: 'Whitefish', shape: 'std', recommend: true, kleine: true,
+    { id: 'roach', name: 'Roach', nl: 'Blankvoorn', group: 'Whitefish', recommend: true, kleine: true,
       temp: [2, 8, 20, 26], light: { dawn: .8, day: .7, dusk: .85, night: .2 }, cloud: .1, press: .35, calm: .7, rain: .8,
       months: [.7, .7, .75, .8, .8, .85, .85, .85, .9, .95, .9, .75],
       habitat: { shipcanal: .8, harbour: .9, diep: .85, river: .85, shallowlake: .8, pit: .7, polder: .75 },
@@ -190,7 +190,7 @@
         warm: { where: 'Shade and plants, higher in the water.', rig: 'Float set shallower.', bait: 'Hemp, bread, maggots.', tip: 'Change depth until you find them.' }
       },
       rules: {} },
-    { id: 'rudd', name: 'Rudd', nl: 'Ruisvoorn', group: 'Whitefish', shape: 'std', recommend: true, kleine: true,
+    { id: 'rudd', name: 'Rudd', nl: 'Ruisvoorn', group: 'Whitefish', recommend: true, kleine: true,
       temp: [10, 16, 25, 29], light: { dawn: .8, day: .8, dusk: .85, night: .1 }, cloud: 0, press: .25, calm: .9, rain: .6,
       months: [.1, .1, .2, .4, .8, 1, 1, 1, .8, .5, .25, .1],
       habitat: { polder: 1, shallowlake: .9, diep: .75, harbour: .4, shipcanal: .25, river: .5, pit: .5 },
@@ -200,7 +200,7 @@
         warm: { where: 'Surface layer near plants.', rig: 'Surface float or a light fly rod.', bait: 'Bread crust, insects.', tip: 'Warm, still evenings are a good time to look for rises.' }
       },
       rules: {} },
-    { id: 'ide', name: 'Ide', nl: 'Winde', group: 'Whitefish', shape: 'std', recommend: true, kleine: true,
+    { id: 'ide', name: 'Ide', nl: 'Winde', group: 'Whitefish', recommend: true, kleine: true,
       temp: [5, 10, 22, 26], light: { dawn: .85, day: .6, dusk: .85, night: .2 }, cloud: .1, press: .35, calm: .7, rain: .75,
       months: [.4, .4, .45, .4, .4, .8, .9, .9, .9, .85, .6, .45],
       habitat: { river: 1, diep: .7, harbour: .5, shipcanal: .55, shallowlake: .35, pit: .3, polder: .4 },
@@ -210,7 +210,7 @@
         warm: { where: 'Upper water layer and near inflows.', rig: 'Floating bread or small lure.', bait: 'Bread crust, small spinner.', tip: 'Can be shy. Approach quietly.' }
       },
       rules: { closed: 'ide' } },
-    { id: 'bleak', name: 'Bleak', nl: 'Alver', group: 'Whitefish', shape: 'std', recommend: true, kleine: true,
+    { id: 'bleak', name: 'Bleak', nl: 'Alver', group: 'Whitefish', recommend: true, kleine: true,
       temp: [8, 14, 26, 30], light: { dawn: .7, day: .95, dusk: .85, night: .05 }, cloud: 0, press: .15, calm: .9, rain: .5,
       months: [.1, .1, .2, .4, .75, 1, 1, 1, .85, .55, .25, .1],
       habitat: { harbour: .85, shipcanal: .75, river: .75, diep: .6, shallowlake: .55, pit: .55, polder: .3 },
@@ -220,7 +220,7 @@
         warm: { where: 'Surface layer near harbours and quays.', rig: 'Whip with a tiny float.', bait: 'Maggot.', tip: 'Quick fishing and a good way to catch your own count on a slow day.' }
       },
       rules: {} },
-    { id: 'eel', name: 'Eel', nl: 'Paling', group: 'Protected', shape: 'eel', recommend: false, kleine: true,
+    { id: 'eel', name: 'Eel', nl: 'Paling', group: 'Protected', recommend: false, kleine: true,
       temp: [10, 15, 25, 30], light: { dawn: .4, day: .1, dusk: .7, night: 1 }, cloud: .1, press: .5, calm: .8, rain: 1,
       months: [.05, .05, .1, .4, .8, 1, 1, 1, .8, .4, .1, .05],
       habitat: { shipcanal: .7, harbour: .7, diep: .7, river: .8, shallowlake: .7, pit: .5, polder: .7 },
@@ -230,7 +230,7 @@
         warm: { where: 'Not recommended as a target. Eel is a protected, threatened species.', rig: 'None.', bait: 'None.', tip: 'A photo first is allowed. Release it straight away, unharmed, in the same water.' }
       },
       rules: { release: true, protect: 'Eel must go straight back, alive and unharmed, into the same water.' } },
-    { id: 'catfish', name: 'Wels catfish', nl: 'Meerval', group: 'Protected', shape: 'eel', recommend: false, kleine: false,
+    { id: 'catfish', name: 'Wels catfish', nl: 'Meerval', group: 'Protected', recommend: false, kleine: false,
       temp: [10, 16, 26, 30], light: { dawn: .6, day: .2, dusk: .8, night: 1 }, cloud: .1, press: .7, calm: .8, rain: .9,
       months: [.05, .05, .1, .3, .6, .8, 1, 1, .8, .5, .1, .05],
       habitat: { shipcanal: .8, harbour: .4, diep: .3, river: .6, shallowlake: .4, pit: .5, polder: .1 },
