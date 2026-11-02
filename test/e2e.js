@@ -63,6 +63,25 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await noOverflow('today');
   await shot('01-today');
 
+  // The fish picker switches the whole screen
+  assert(await page.locator('.go').count() === 0, 'Go here block is gone');
+  assert(await page.locator('.hero h1 .fishname').count() === 1, 'fish name is highlighted');
+  assert(await page.locator('.pickgrid .chip').count() === 16, 'picker offers all 16 fish');
+  await page.locator('.pickgrid .chip:text-is("Carp")').click();
+  await page.waitForTimeout(100);
+  assert(/for carp/.test(await page.textContent('.hero h1')), 'picking carp switches the headline: ' + (await page.textContent('.hero h1')));
+  assert((await page.textContent('.sectionhead .aside')) === 'Carp', 'the 48-hour chart follows the fish');
+  assert((await page.locator('.pickgrid .chip[aria-pressed="true"]').textContent()) === 'Carp', 'picked fish is marked');
+  assert(/carp guide/.test(await page.textContent('#view')), 'how-to follows the fish');
+  await shot('10-focus-carp');
+  await page.locator('.pickgrid .chip:text-is("Eel")').click();
+  await page.waitForTimeout(100);
+  assert(/is protected/.test(await page.textContent('.hero h1')), 'eel shows as protected: ' + (await page.textContent('.hero h1')));
+  await noOverflow('focus eel');
+  await page.click('[data-act="focus-clear"]');
+  await page.waitForTimeout(100);
+  assert(h1 === await page.textContent('.hero h1'), 'back to the top pick');
+
   // Choose an hour in the strip
   await page.locator('.hr').nth(20).click();
   await page.waitForTimeout(100);

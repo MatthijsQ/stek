@@ -17,7 +17,7 @@
   const LINKS = { visplanner: 'https://visplanner.nl', waterinfo: 'https://waterinfo.rws.nl', sportvisunie: 'https://www.sportvisunie.nl/nl' };
 
   const state = {
-    tab: 'today', weather: null, error: null, loading: false, t: null,
+    tab: 'today', weather: null, error: null, loading: false, t: null, focus: null,
     settings: { permit: 'full', theme: 'auto', origin: null }, measure: null,
     records: [], userSpots: [], checked: {}, spotSpecies: null, backupAt: 0, installDismissed: false,
     photoUrls: new Map(), lastHour: null
@@ -239,32 +239,35 @@
     const t = NEEDLE(), { c, rows, best } = scored(t), isNow = state.t === null;
     const head = isNow ? `Today ${clock(Date.now())}` : `${dayLabel(t)} ${clock(t)}`;
     const alerts = alertsFor(c);
+    const shown = state.focus ? rows.find((r) => r.sp.id === state.focus) : best;
+    const stripSp = shown ? shown.sp : rows[0].sp;
+    /* Pick a fish: every fish, best first, and the whole screen follows it. */
+    const picker = `<section class="block"><h2>Check out statistics for</h2><div class="pickgrid">${rows.map((r) => `<button class="chip" data-act="focus" data-id="${r.sp.id}" aria-pressed="${!!shown && r.sp.id === shown.sp.id}">${esc(r.sp.name)}</button>`).join('')}</div></section>`;
+    const backLinks = `${isNow ? '' : '<button class="btn link inline" data-act="now">Back to now</button>'}${state.focus ? '<button class="btn link inline" data-act="focus-clear">Back to top pick</button>' : ''}`;
     let hero;
-    if (!best) {
-      hero = `<section class="hero"><div class="eyebrow num"><span>${esc(head)}</span></div><h1>Nothing recommended right now</h1><p>Your permit or the rules block every target fish at this time. Pick another hour below.</p></section>`;
+    if (!shown) {
+      hero = `<section class="hero"><div class="eyebrow num"><span>${esc(head)}</span>${backLinks}</div><h1>Nothing recommended right now</h1><p>Your permit or the rules block every target fish at this time. Pick another hour below.</p></section>${picker}`;
     } else {
-      const sp = best.sp, reasons = E.headlineReasons(best, c), top = spotsFor(sp, c)[0], how = E.howTo(sp, c);
-      const win = E.bestWindow(w, sp.id, Date.now(), 36, { settings: state.settings, measure: state.measure }).best;
-      const adj = best.personal && best.personal.points ? `<span class="pill info">Your log ${signed(best.personal.points, 0)}</span>` : '';
-      const wording = { excellent: 'Excellent fishing', good: 'Good fishing', fair: 'Fair fishing', slow: 'Slow fishing', poor: 'Poor fishing' }[best.band.key];
-      const others = rows.filter((r) => r.recommended && r !== best).slice(0, 3).map((r) => `<button class="chip" data-act="species" data-id="${r.sp.id}">${esc(r.sp.name)} ${r.score}</button>`).join('');
+      const sp = shown.sp, reasons = E.headlineReasons(shown, c), how = E.howTo(sp, c), fish = `<span class="fishname">${esc(sp.name.toLowerCase())}</span>`, fishCap = `<span class="fishname">${esc(sp.name)}</span>`;
+      const win = shown.recommended || sp.recommend ? E.bestWindow(w, sp.id, Date.now(), 36, { settings: state.settings, measure: state.measure }).best : null;
+      const adj = shown.personal && shown.personal.points ? `<span class="pill info">Your log ${signed(shown.personal.points, 0)}</span>` : '';
+      const wording = { excellent: 'Excellent fishing', good: 'Good fishing', fair: 'Fair fishing', slow: 'Slow fishing', poor: 'Poor fishing' }[shown.band.key];
+      const title = shown.recommended ? `${wording} for ${fish}` : !shown.legal.legal ? `${fishCap} is closed right now` : !shown.legal.method ? `${fishCap} is not possible right now` : `${fishCap} is protected`;
+      const stateNote = shown.recommended ? '' : esc(shown.legal.notes[0] || (sp.rules && sp.rules.protect) || 'Not recommended as a target.');
+      const others = rows.filter((r) => r.recommended && r !== shown).slice(0, 3).map((r) => `<button class="chip" data-act="focus" data-id="${r.sp.id}">${esc(r.sp.name)} ${r.score}</button>`).join('');
       hero = `<section class="hero">
-        <div class="eyebrow num"><span>${esc(head)}</span>${isNow ? '' : '<button class="btn link" data-act="now" style="min-height:0;padding:0">Back to now</button>'}</div>
-        <h1>${wording} for ${esc(sp.name.toLowerCase())}</h1>
-        <div class="meter">${floatMeter(best.score)}<div class="meter-copy"><div class="meter-score">${best.score}<small> /100</small></div><div class="meter-label"><span class="dot bg-${best.band.tone}"></span>${best.band.label} right ${isNow ? 'now' : 'then'} ${adj}</div></div></div>
-        <ul class="why">${reasons.pos.map((r) => `<li><span class="mark tone-good" aria-label="Helps">+</span><span>${esc(r.text)}</span></li>`).join('')}${reasons.neg.map((r) => `<li><span class="mark tone-bad" aria-label="Hurts">−</span><span>${esc(r.text)}</span></li>`).join('')}</ul>
+        <div class="eyebrow num"><span>${esc(head)}</span>${backLinks}</div>
+        <h1>${title}</h1>
+        <div class="meter">${floatMeter(shown.recommended ? shown.score : 0)}<div class="meter-copy"><div class="meter-score">${shown.recommended ? shown.score : '—'}<small> /100</small></div><div class="meter-label">${shown.recommended ? `<span class="dot bg-${shown.band.tone}"></span>${shown.band.label} right ${isNow ? 'now' : 'then'} ${adj}` : stateNote}</div></div></div>
+        ${shown.recommended ? `<ul class="why">${reasons.pos.map((r) => `<li><span class="mark tone-good" aria-label="Helps">+</span><span>${esc(r.text)}</span></li>`).join('')}${reasons.neg.map((r) => `<li><span class="mark tone-bad" aria-label="Hurts">−</span><span>${esc(r.text)}</span></li>`).join('')}</ul>` : ''}
         ${win ? `<p class="num"><strong>Best in the next 36 hours:</strong> ${esc(windowText(win))} (${win.score})</p>` : ''}
         ${others ? `<div><div class="label">Also on</div><div class="chips" style="margin-top:5px">${others}</div></div>` : ''}
       </section>
       ${alerts.length ? `<div style="display:grid;gap:8px">${alertHTML(alerts)}</div>` : ''}
-      ${top ? `<section class="block go"><div class="label">Go here</div><button class="btn link" data-act="spot" data-id="${esc(top.spot.id)}" style="justify-content:flex-start;padding:0;min-height:0;text-decoration:none"><h3 style="text-align:left">${esc(top.spot.name)}</h3></button>
-        <div class="go-meta num"><span class="pill">${top.minutes} min by bike</span>${statusPill(top.spot)}</div>
-        <p>${esc(top.spot.tips || '')}</p><p>${esc(E.windAdvice(c))}</p>
-        <div class="btnrow"><a class="btn primary" href="${routeUrl(top.spot)}" target="_blank" rel="noopener">Bike route</a><button class="btn" data-act="tab" data-id="spots" data-species="${sp.id}">More spots</button></div></section>` : ''}
+      ${picker}
       <section class="block"><div class="label">How to fish it</div><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div>
         <button class="btn" data-act="species" data-id="${sp.id}">Full ${esc(sp.name.toLowerCase())} guide and rules</button></section>`;
     }
-    const stripSp = best ? best.sp : rows[0].sp;
     return `${installBanner()}${hero}
       <section class="block"><div class="sectionhead"><h2>Next 48 hours</h2><span class="aside">${esc(stripSp.name)}</span></div>${hourStrip(stripSp)}<p class="small muted">Tap an hour to see that moment.</p></section>
       <section style="display:grid;gap:8px"><div class="sectionhead"><h2>Conditions</h2><span class="aside num">${esc(E.weatherText(c.code))}</span></div>${conditionsGrid(c, w)}</section>
@@ -327,7 +330,7 @@
   function renderSpots() {
     if (!state.weather) return renderToday();
     const t = NEEDLE(), { c, rows, best } = scored(t);
-    const sel = state.spotSpecies || (best ? best.sp.id : 'pike'), sp = E.speciesById(sel), ranked = spotsFor(sp, c);
+    const sel = state.spotSpecies || state.focus || (best ? best.sp.id : 'pike'), sp = E.speciesById(sel), ranked = spotsFor(sp, c);
     const chips = rows.filter((r) => r.sp.recommend).map((r) => `<button class="chip" data-act="spot-species" data-id="${r.sp.id}" aria-pressed="${r.sp.id === sel}">${esc(r.sp.name)}</button>`).join('');
     const list = ranked.map((r, i) => `<button class="row" data-act="spot" data-id="${esc(r.spot.id)}"><span class="score ${i < 3 ? 'tone-good' : 'muted'}">${i + 1}</span><span><span class="title">${esc(r.spot.name)}</span><span class="sub num">${r.minutes} min by bike · ${esc((D.WATER_TYPES[r.spot.type] || {}).label || '')}${r.why.length ? ' · ' + esc(r.why[0]) : ''}</span><span style="display:block;margin-top:4px">${statusPill(r.spot)}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('');
     const from = state.settings.origin ? 'your location' : 'the city centre';
@@ -742,6 +745,8 @@
       case 'settings': openSettings(); break;
       case 'close': closeSheet(); break;
       case 'now': state.t = null; render(); break;
+      case 'focus': state.focus = id; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); break;
+      case 'focus-clear': state.focus = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); break;
       case 'pick-hour': {
         const t = +b.dataset.t, inSheet = !!b.closest('#sheet');
         state.t = Math.abs(t - Date.now()) < 45 * 60 * 1000 ? null : t;
