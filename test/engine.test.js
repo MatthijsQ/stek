@@ -120,9 +120,10 @@ test('scores change smoothly from hour to hour', () => {
     prev = v;
   }
 });
-test('Excellent needs most things going right', () => {
+test('scores spread across the range', () => {
   const steady = score('zander', at(2026, 11, 2, 17), { mean: 11 }).score;
   assert.ok(steady >= 62 && steady < 80, 'steady dusk ' + steady);
+  assert.deepStrictEqual([70, 50, 20].map((v) => E.scoreBand(v).label), ['Good', 'Medium', 'Bad']);
   const midday = score('zander', at(2026, 11, 2, 12), { mean: 11, cloud: 10 }).score;
   assert.ok(midday < 62, 'midday ' + midday);
 });

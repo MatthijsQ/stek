@@ -54,7 +54,8 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await page.waitForSelector('.hero h1');
   await page.waitForTimeout(300);
   const h1 = await page.textContent('.hero h1');
-  assert(/fishing for/.test(h1), 'headline: ' + h1);
+  assert(/^(Good|Medium|Bad) fishing for/.test(h1), 'headline: ' + h1);
+  assert(await page.locator('.hero h1 span[class^="tone-"]').count() === 1, 'headline word has the score colour');
   assert((await page.textContent('.eyebrow')).includes('Today'), 'shows today and the time');
   for (const lbl of ['Air', 'Water', 'Air pressure', 'Wind', 'Surface drift', 'Rain', 'Cloud', 'Moon', 'Humidity', 'Visibility', 'Level and current']) assert(await page.locator(`.cell .label:text-is("${lbl}")`).count() === 1, 'condition shown: ' + lbl);
   assert((await page.locator('.cell:has(.label:text-is("Air pressure")) .val').textContent()).includes('1031'), 'live pressure is used');
@@ -228,7 +229,7 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await page.click('#sheet [data-act="close"]');
   await page.waitForTimeout(100);
   const klein = await page.textContent('#view');
-  assert(!/Good fishing for (pike|zander)|Excellent fishing for (pike|zander)|Fair fishing for (pike|zander)/.test(klein), 'Kleine VISpas does not recommend pike or zander');
+  assert(!/(Good|Medium|Bad) fishing for (pike|zander)/.test(klein), 'Kleine VISpas does not recommend pike or zander');
   await page.click('[data-act="settings"]');
   await page.click('#sheet [data-act="permit"][data-v="full"]');
   await page.click('#sheet [data-act="close"]');

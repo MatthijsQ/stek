@@ -208,7 +208,7 @@
       html += `<button class="hr ${c.daypart === 'night' ? 'nightband' : ''} ${blocked ? 'blocked' : ''} ${sel ? 'sel' : ''}" data-act="pick-hour" data-t="${t}" aria-label="${esc(weekday(t))} ${clock(t)}: ${blocked ? 'not allowed' : r.band.label + ', ' + r.score}"><span class="bar ${blocked ? '' : 'bg-' + r.band.tone}" style="height:${hgt}px"></span>${tick}</button>`;
     }
     return `<div class="strip" id="${opts.id || 'strip'}"><div class="strip-inner">${html}</div></div>
-      <div class="legend"><span><i class="bg-good"></i>Good</span><span><i class="bg-warn"></i>Fair</span><span><i class="bg-bad"></i>Slow</span><span><i class="hatch"></i>Not allowed</span><span><i class="nightkey"></i>Dark</span></div>`;
+      <div class="legend"><span><i class="bg-good"></i>Good</span><span><i class="bg-warn"></i>Medium</span><span><i class="bg-bad"></i>Bad</span><span><i class="hatch"></i>Not allowed</span><span><i class="nightkey"></i>Dark</span></div>`;
   }
   function pressureSpark(w, t) {
     const H = w.hourly, pts = [];
@@ -233,7 +233,7 @@
     const stripSp = shown ? shown.sp : rows[0].sp;
     /* Pick a fish: every fish, best first, and the whole screen follows it. */
     const pickTone = (r) => (r.recommended ? r.band.tone : 'off');
-    const picker = `<section class="block"><h2>Check out statistics for</h2><div class="pickgrid">${rows.map((r) => `<button class="chip pick-${pickTone(r)}" data-act="focus" data-id="${r.sp.id}" aria-label="${esc(r.sp.name)}: ${r.recommended ? esc(r.band.label) : esc(r.legal.notes[0] || 'protected')}" aria-pressed="${!!shown && r.sp.id === shown.sp.id}">${esc(r.sp.name)}</button>`).join('')}</div><div class="legend"><span><i class="bg-good"></i>Good</span><span><i class="bg-warn"></i>Fair</span><span><i class="bg-bad"></i>Slow</span><span><i class="offkey"></i>Closed or protected</span></div></section>`;
+    const picker = `<section class="block"><h2>Check out statistics for</h2><div class="pickgrid">${rows.map((r) => `<button class="chip pick-${pickTone(r)}" data-act="focus" data-id="${r.sp.id}" aria-label="${esc(r.sp.name)}: ${r.recommended ? esc(r.band.label) : esc(r.legal.notes[0] || 'protected')}" aria-pressed="${!!shown && r.sp.id === shown.sp.id}">${esc(r.sp.name)}</button>`).join('')}</div><div class="legend"><span><i class="bg-good"></i>Good</span><span><i class="bg-warn"></i>Medium</span><span><i class="bg-bad"></i>Bad</span><span><i class="offkey"></i>Closed or protected</span></div></section>`;
     const away = !isNow || !!state.focus;
     const viewBar = `<div class="viewbar eyebrow num ${away ? 'away' : ''}"><span class="when">${esc(head)}</span>${isNow ? '' : '<button class="backpill" data-act="now" aria-label="Back to now">\u2190 Now</button>'}${state.focus ? '<button class="backpill" data-act="focus-clear" aria-label="Back to top pick">\u2190 Top pick</button>' : ''}</div>`;
     let hero;
@@ -243,8 +243,7 @@
       const sp = shown.sp, reasons = E.headlineReasons(shown, c), how = E.howTo(sp, c), fish = `<span class="fishname">${esc(sp.name.toLowerCase())}</span>`, fishCap = `<span class="fishname">${esc(sp.name)}</span>`;
       const win = shown.recommended || sp.recommend ? E.bestWindow(w, sp.id, Date.now(), 36, { settings: state.settings, measure: state.measure }).best : null;
       const adj = shown.personal && shown.personal.points ? `<span class="pill info">Your log ${signed(shown.personal.points, 0)}</span>` : '';
-      const wording = { excellent: 'Excellent fishing', good: 'Good fishing', fair: 'Fair fishing', slow: 'Slow fishing', poor: 'Poor fishing' }[shown.band.key];
-      const title = shown.recommended ? `${wording} for ${fish}` : !shown.legal.legal ? `${fishCap} is closed right now` : !shown.legal.method ? `${fishCap} is not possible right now` : `${fishCap} is protected`;
+      const title = shown.recommended ? `<span class="tone-${shown.band.tone}">${esc(shown.band.label)}</span> fishing for ${fish}` : !shown.legal.legal ? `${fishCap} is closed right now` : !shown.legal.method ? `${fishCap} is not possible right now` : `${fishCap} is protected`;
       const stateNote = shown.recommended ? '' : esc(shown.legal.notes[0] || (sp.rules && sp.rules.protect) || 'Not recommended as a target.');
       hero = `${viewBar}<section class="hero">
         <h1>${title}</h1>

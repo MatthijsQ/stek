@@ -342,7 +342,7 @@
     for (const k in WEIGHTS) raw += WEIGHTS[k] * f[k];
     raw *= .6 + .4 * Math.min(1, f.temp / .5); /* wrong water temperature limits everything else */
     raw *= .72 + .28 * Math.min(1, f.light / .8); /* so does the wrong time of day */
-    let score = clamp((raw - .35) / .75) * 100; /* average conditions land around the middle; Excellent needs most things going right */
+    let score = clamp((raw - .35) / .75) * 100; /* average conditions land around the middle */
     const adj = personal ? personal.points : 0;
     score += adj;
     if (c.thunder) score = Math.min(score, 15);
@@ -353,11 +353,9 @@
     return { sp, score, band: scoreBand(score), factors: f, legal, personal: personal || null, recommended: sp.recommend && legal.ok };
   }
   function scoreBand(score) {
-    if (score >= 80) return { key: 'excellent', label: 'Excellent', tone: 'good' };
     if (score >= 62) return { key: 'good', label: 'Good', tone: 'good' };
-    if (score >= 45) return { key: 'fair', label: 'Fair', tone: 'warn' };
-    if (score >= 25) return { key: 'slow', label: 'Slow', tone: 'bad' };
-    return { key: 'poor', label: 'Poor', tone: 'bad' };
+    if (score >= 45) return { key: 'medium', label: 'Medium', tone: 'warn' };
+    return { key: 'bad', label: 'Bad', tone: 'bad' };
   }
 
   const fmt1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
