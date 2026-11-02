@@ -306,13 +306,17 @@
     const out = {};
     const w = c.water === null ? 10 : c.water;
     out.temp = .06 + .94 * trapezoid(w, sp.temp[0], sp.temp[1], sp.temp[2], sp.temp[3]);
-    let light = sp.light[c.daypart];
-    if (c.daypart === 'day') {
-      light += (c.cloud / 100) * sp.cloud;
-      if (w < 8 && sp.light.night < .5) light += .15; /* the warmest hours are worth fishing in cold water */
-      if (w > 20) light -= .1;
-    }
-    out.light = clamp(light);
+    /* Light fades in and out around sunrise and sunset, so scores do not jump between hours. */
+    let dayLight = sp.light.day + (c.cloud / 100) * sp.cloud;
+    if (w < 8 && sp.light.night < .5) dayLight += .15; /* the warmest hours are worth fishing in cold water */
+    if (w > 20) dayLight -= .1;
+    dayLight = clamp(dayLight);
+    const rise = c.sunrise, set = c.sunset, t = c.t;
+    const dawn = trapezoid(t, rise - 1.5 * HOUR, rise - .5 * HOUR, rise + HOUR, rise + 2.5 * HOUR);
+    const dusk = trapezoid(t, set - 3 * HOUR, set - HOUR, set + .5 * HOUR, set + 1.5 * HOUR);
+    const rest = clamp(1 - dawn - dusk);
+    const base0 = t > rise && t < set ? dayLight : sp.light.night;
+    out.light = clamp(dawn * sp.light.dawn + dusk * sp.light.dusk + rest * base0);
     const base = { crash: .4, falling: .85, steady: .6, rising: .45, jump: .3 }[c.pressClass];
     let press = .6 + (base - .6) * sp.press;
     if (c.press > 1025 && c.cloud < 25) press -= .1 * sp.press;
@@ -338,7 +342,7 @@
     for (const k in WEIGHTS) raw += WEIGHTS[k] * f[k];
     raw *= .6 + .4 * Math.min(1, f.temp / .5); /* wrong water temperature limits everything else */
     raw *= .72 + .28 * Math.min(1, f.light / .8); /* so does the wrong time of day */
-    let score = clamp((raw - .3) / .68) * 100;
+    let score = clamp((raw - .35) / .75) * 100; /* average conditions land around the middle; Excellent needs most things going right */
     const adj = personal ? personal.points : 0;
     score += adj;
     if (c.thunder) score = Math.min(score, 15);

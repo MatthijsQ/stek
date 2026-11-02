@@ -98,7 +98,7 @@ test('autumn pike at dusk beats midsummer-style carp in cold water', () => {
 });
 test('summer tench at dawn scores well', () => {
   const r = score('tench', at(2026, 6, 20, 7), { mean: 18, wind: 3, cloud: 60 });
-  assert.ok(r.score >= 75, 'tench ' + r.score);
+  assert.ok(r.score >= 65, 'tench ' + r.score);
 });
 test('zander scores better at dusk than bright midday', () => {
   const dusk = score('zander', at(2026, 10, 10, 17), { mean: 13, cloud: 20 });
@@ -109,7 +109,22 @@ test('scores use the whole range', () => {
   const low = score('tench', at(2026, 1, 15, 12), { mean: 2, air: 1, wind: 45, cloud: 5 }).score;
   const high = score('pike', at(2026, 10, 15, 8), { mean: 12, wind: 14, cloud: 80 }).score;
   assert.ok(low < 15, 'low ' + low);
-  assert.ok(high >= 75, 'high ' + high);
+  assert.ok(high >= 72, 'high ' + high);
+});
+test('scores change smoothly from hour to hour', () => {
+  const day = at(2026, 11, 2, 0), w = makeWeather(day, { mean: 11 });
+  let prev = null;
+  for (let h = 6; h < 22; h++) {
+    const v = E.scoreSpecies(E.speciesById('zander'), E.conditionsAt(w, at(2026, 11, 2, h))).score;
+    if (prev !== null) assert.ok(Math.abs(v - prev) <= 12, `hour ${h}: ${prev} to ${v}`);
+    prev = v;
+  }
+});
+test('Excellent needs most things going right', () => {
+  const steady = score('zander', at(2026, 11, 2, 17), { mean: 11 }).score;
+  assert.ok(steady >= 62 && steady < 80, 'steady dusk ' + steady);
+  const midday = score('zander', at(2026, 11, 2, 12), { mean: 11, cloud: 10 }).score;
+  assert.ok(midday < 62, 'midday ' + midday);
 });
 test('thunder, gale and ice cap the score', () => {
   assert.ok(score('pike', at(2026, 10, 15, 8), { mean: 12, code: 95 }).score <= 15);
