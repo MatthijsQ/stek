@@ -440,8 +440,7 @@
         if (type.exposure <= .4) why.push('Sheltered from the wind'); else if (type.exposure >= .8) why.push('Exposed to the wind');
       }
       val -= Math.min(18, km * .9);
-      if (ctx.checked && ctx.checked[s.id]) val += 3;
-      if (s.status === 'check' && !(ctx.checked && ctx.checked[s.id])) val -= 6;
+      if (s.status === 'check') val -= 6;
       let personal = 0;
       if (ctx.spotLift) { personal = ctx.spotLift(s.id); val += personal; if (personal >= 3) why.push('Has worked well for you'); }
       if (!why.length && (sp.habitat[s.type] || 0) >= .8) why.push('Good water type for ' + sp.name.toLowerCase());
@@ -568,7 +567,6 @@
       catches, blanks, bySpecies, pbs, trips, spots,
       speciesCount: Object.keys(bySpecies).filter((id) => id !== 'other').length,
       photos: catches.filter((r) => r.hasPhoto).length,
-      released: catches.filter((r) => r.released).length,
       maxDay, slam,
       streak: weekStreak(records), longestStreak: bestStreak(records)
     };
@@ -607,7 +605,6 @@
     { id: 'streak12', name: 'Season Pass', text: 'Log a trip 12 weeks in a row.', xp: 500, test: (s) => s.longestStreak >= 12 },
     { id: 'blank3', name: 'Honest Angler', text: 'Log 3 trips with no catch.', xp: 75, test: (s) => s.blanks.length >= 3 },
     { id: 'blank10', name: 'Scientist', text: 'Log 10 trips with no catch.', xp: 200, test: (s) => s.blanks.length >= 10 },
-    { id: 'release', name: 'Back You Go', text: 'Release 10 fish.', xp: 100, test: (s) => s.released >= 10 },
     { id: 'photo', name: 'Proof', text: 'Add photos to 10 catches.', xp: 100, test: (s) => s.photos >= 10 },
     { id: 'learner', name: 'App Trained', text: 'Log 25 trips so your scores use your full history.', xp: 300, test: (s) => s.trips.length >= 25 }
   ];
@@ -659,7 +656,6 @@
     if (r.protect) out.push({ tone: 'bad', text: r.protect });
     else if (r.release) out.push({ tone: 'warn', text: `${sp.name} must be released.` });
     if (r.min && lengthCm && lengthCm < r.min) out.push({ tone: 'bad', text: `Under the ${r.min} cm minimum. Release it straight away.` });
-    if (r.take && !(c.closed) && (!r.min || !lengthCm || lengthCm >= r.min)) out.push({ tone: 'info', text: r.take });
     return out;
   }
 

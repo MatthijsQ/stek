@@ -134,8 +134,7 @@ test('thunder, gale and ice cap the score', () => {
 test('closed species and blocked methods are never recommended', () => {
   assert.strictEqual(score('pike', at(2026, 4, 10, 8), { mean: 10 }).recommended, false);
   assert.strictEqual(score('catfish', at(2026, 7, 10, 22), { mean: 22 }).recommended, false);
-  assert.strictEqual(score('eel', at(2026, 7, 10, 23), { mean: 22 }).recommended, false);
-  assert.strictEqual(score('pike', at(2026, 10, 10, 8), { mean: 12 }, { permit: 'kleine' }).recommended, false);
+    assert.strictEqual(score('pike', at(2026, 10, 10, 8), { mean: 12 }, { permit: 'kleine' }).recommended, false);
   assert.strictEqual(score('roach', at(2026, 10, 10, 23), { mean: 12 }, { permit: 'kleine' }).recommended, false);
   assert.strictEqual(score('roach', at(2026, 10, 10, 23), { mean: 12 }, { permit: 'vispas' }).recommended, false);
   assert.strictEqual(score('roach', at(2026, 10, 10, 23), { mean: 12 }, { permit: 'full' }).recommended, true);
@@ -223,8 +222,9 @@ test('XP, new species, personal bests and achievements', () => {
 test('catch form warnings', () => {
   const summer = at(2026, 8, 1);
   assert.ok(E.catchAdvice(E.speciesById('pike'), 40, summer).some((a) => /45 cm/.test(a.text)));
-  assert.ok(E.catchAdvice(E.speciesById('pike'), 60, summer).some((a) => /at most 1/.test(a.text)));
-  assert.ok(E.catchAdvice(E.speciesById('eel'), 60, summer).some((a) => /straight back/.test(a.text)));
+  assert.strictEqual(E.catchAdvice(E.speciesById('pike'), 60, summer).length, 0, 'no keep limits while logging');
+  assert.ok(E.catchAdvice(E.speciesById('catfish'), 60, summer).some((a) => /release/i.test(a.text)));
+  ['ruffe', 'silver', 'eel'].forEach((id) => assert.strictEqual(E.speciesById(id), undefined));
   assert.ok(E.catchAdvice(E.speciesById('pike'), 60, at(2026, 4, 1)).some((a) => /closed/i.test(a.text)));
 });
 test('best window finds legal hours only', () => {

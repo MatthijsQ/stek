@@ -14,12 +14,12 @@
   };
   const addDays = (n) => E.dateKey(Date.now() + n * DAY);
   const backupUrl = (from, to) => `https://api.brightsky.dev/weather?lat=${LAT}&lon=${LON}&date=${addDays(from)}&last_date=${addDays(to)}&tz=Europe/Amsterdam`;
-  const LINKS = { visplanner: 'https://visplanner.nl', waterinfo: 'https://waterinfo.rws.nl', sportvisunie: 'https://www.sportvisunie.nl/nl' };
+  const LINKS = { waterinfo: 'https://waterinfo.rws.nl' };
 
   const state = {
     tab: 'today', weather: null, error: null, loading: false, t: null, focus: null,
     settings: { permit: 'full', theme: 'auto', origin: null }, measure: null,
-    records: [], userSpots: [], checked: {}, spotSpecies: null, backupAt: 0, installDismissed: false,
+    records: [], userSpots: [], spotSpecies: null, backupAt: 0, installDismissed: false,
     photoUrls: new Map(), lastHour: null
   };
   let deferredInstall = null, map = null, mapLayer = null;
@@ -78,9 +78,9 @@
   async function loadAll() {
     try {
       state.records = await store.all('records');
-      const [settings, measure, spots, checked, cached, backupAt, dismissed] = await Promise.all(['settings', 'measure', 'userSpots', 'checked', 'weather', 'backupAt', 'installDismissed'].map((k) => store.get('kv', k)));
+      const [settings, measure, spots, cached, backupAt, dismissed] = await Promise.all(['settings', 'measure', 'userSpots', 'weather', 'backupAt', 'installDismissed'].map((k) => store.get('kv', k)));
       if (settings) Object.assign(state.settings, settings);
-      state.measure = measure || null; state.userSpots = spots || []; state.checked = checked || {};
+      state.measure = measure || null; state.userSpots = spots || [];
       state.backupAt = backupAt || 0; state.installDismissed = !!dismissed;
       if (cached && cached.hourly) state.weather = cached;
     } catch (e) { state.storageError = true; }
@@ -169,7 +169,7 @@
     return { water: c.water, air: c.air, press: c.press, d3: c.d3, pressClass: c.pressClass, wind: c.wind, windClass: c.windClass, gust: c.gust, dir: c.dir, code: c.code, cloud: c.cloud, precip: c.precip, daypart: c.daypart, night: c.night, sunrise: c.sunrise, sunset: c.sunset, moon: c.moon.name };
   }
   function spotsFor(sp, c) {
-    return E.rankSpots(sp, c, allSpots(), { origin: origin(), settings: state.settings, checked: state.checked, spotLift: E.spotLifter(sp.id, trips()) });
+    return E.rankSpots(sp, c, allSpots(), { origin: origin(), settings: state.settings, spotLift: E.spotLifter(sp.id, trips()) });
   }
   function alertsFor(c) {
     const a = [];
@@ -234,10 +234,11 @@
     /* Pick a fish: every fish, best first, and the whole screen follows it. */
     const pickTone = (r) => (r.recommended ? r.band.tone : 'off');
     const picker = `<section class="block"><h2>Check out statistics for</h2><div class="pickgrid">${rows.map((r) => `<button class="chip pick-${pickTone(r)}" data-act="focus" data-id="${r.sp.id}" aria-label="${esc(r.sp.name)}: ${r.recommended ? esc(r.band.label) : esc(r.legal.notes[0] || 'protected')}" aria-pressed="${!!shown && r.sp.id === shown.sp.id}">${esc(r.sp.name)}</button>`).join('')}</div><div class="legend"><span><i class="bg-good"></i>Good</span><span><i class="bg-warn"></i>Fair</span><span><i class="bg-bad"></i>Slow</span><span><i class="offkey"></i>Closed or protected</span></div></section>`;
-    const backLinks = `${isNow ? '' : '<button class="btn link inline" data-act="now">Back to now</button>'}${state.focus ? '<button class="btn link inline" data-act="focus-clear">Back to top pick</button>' : ''}`;
+    const away = !isNow || !!state.focus;
+    const viewBar = `<div class="viewbar eyebrow num ${away ? 'away' : ''}"><span class="when">${esc(head)}</span>${isNow ? '' : '<button class="backpill" data-act="now" aria-label="Back to now">\u2190 Now</button>'}${state.focus ? '<button class="backpill" data-act="focus-clear" aria-label="Back to top pick">\u2190 Top pick</button>' : ''}</div>`;
     let hero;
     if (!shown) {
-      hero = `<section class="hero"><div class="eyebrow num"><span>${esc(head)}</span>${backLinks}</div><h1>Nothing recommended right now</h1><p>Your permit or the rules block every target fish at this time. Pick another hour below.</p></section>${picker}`;
+      hero = `${viewBar}<section class="hero"><h1>Nothing recommended right now</h1><p>Your permit or the rules block every target fish at this time. Pick another hour below.</p></section>${picker}`;
     } else {
       const sp = shown.sp, reasons = E.headlineReasons(shown, c), how = E.howTo(sp, c), fish = `<span class="fishname">${esc(sp.name.toLowerCase())}</span>`, fishCap = `<span class="fishname">${esc(sp.name)}</span>`;
       const win = shown.recommended || sp.recommend ? E.bestWindow(w, sp.id, Date.now(), 36, { settings: state.settings, measure: state.measure }).best : null;
@@ -245,28 +246,25 @@
       const wording = { excellent: 'Excellent fishing', good: 'Good fishing', fair: 'Fair fishing', slow: 'Slow fishing', poor: 'Poor fishing' }[shown.band.key];
       const title = shown.recommended ? `${wording} for ${fish}` : !shown.legal.legal ? `${fishCap} is closed right now` : !shown.legal.method ? `${fishCap} is not possible right now` : `${fishCap} is protected`;
       const stateNote = shown.recommended ? '' : esc(shown.legal.notes[0] || (sp.rules && sp.rules.protect) || 'Not recommended as a target.');
-      hero = `<section class="hero">
-        <div class="eyebrow num"><span>${esc(head)}</span>${backLinks}</div>
+      hero = `${viewBar}<section class="hero">
         <h1>${title}</h1>
         <div class="meter">${fishMeter(sp, shown.recommended ? shown.score + ' out of 100' : stateNote)}<div class="meter-copy"><div class="meter-score">${shown.recommended ? shown.score : '—'}<small> /100</small></div><div class="meter-label">${shown.recommended ? `<span class="dot bg-${shown.band.tone}"></span>${shown.band.label} right ${isNow ? 'now' : 'then'} ${adj}` : stateNote}</div></div></div>
         ${shown.recommended ? `<ul class="why">${reasons.pos.map((r) => `<li><span class="mark tone-good" aria-label="Helps">+</span><span>${esc(r.text)}</span></li>`).join('')}${reasons.neg.map((r) => `<li><span class="mark tone-bad" aria-label="Hurts">−</span><span>${esc(r.text)}</span></li>`).join('')}</ul>` : ''}
         ${win ? `<p class="num"><strong>Best in the next 36 hours:</strong> ${esc(windowText(win))} (${win.score})</p>` : ''}
       </section>
       ${alerts.length ? `<div style="display:grid;gap:8px">${alertHTML(alerts)}</div>` : ''}
-      <section class="block"><div class="label">How to fish it</div><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div>
+      <section class="block"><div class="label">How to:</div><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div>
         <button class="btn" data-act="species" data-id="${sp.id}">Full ${esc(sp.name.toLowerCase())} guide and rules</button></section>
       ${picker}`;
     }
     return `${installBanner()}${hero}
       <section class="block"><div class="sectionhead"><h2>Next 48 hours</h2><span class="aside">${esc(stripSp.name)}</span></div>${hourStrip(stripSp)}<p class="small muted">Tap an hour to see that moment.</p></section>
       <section style="display:grid;gap:8px"><div class="sectionhead"><h2>Conditions</h2><span class="aside num">${esc(E.weatherText(c.code))}</span></div>${conditionsGrid(c, w)}</section>
-      <section style="display:grid;gap:8px"><div class="sectionhead"><h2>Every fish</h2><span class="aside">Tap for the guide</span></div>${speciesRows(rows)}</section>
       ${learningBlock()}
-      <p class="foot">Scores are estimates built from general fishing knowledge and your log. Weather by ${w.source === 'brightsky' ? '<a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a> with data from Deutscher Wetterdienst' : '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'}. Always check the rules in the <a href="${LINKS.visplanner}" target="_blank" rel="noopener">VISplanner</a>.</p>`;
+      <p class="foot">Scores are estimates built from general fishing knowledge and your log. Weather by ${w.source === 'brightsky' ? '<a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a> with data from Deutscher Wetterdienst' : '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'}. Always check the rules in the official VISplanner app.</p>`;
   }
   function statusPill(s) {
     if (s.own) return '<span class="pill info">Your spot</span>';
-    if (state.checked[s.id]) return '<span class="pill good">You checked it</span>';
     if (s.status === 'listed') return '<span class="pill info">On 2026 Kleine Lijst</span>';
     return '<span class="pill warn">Check VISplanner</span>';
   }
@@ -295,14 +293,6 @@
       <a class="cell tap ${w.sst !== null && w.sst !== undefined ? '' : 'wide'}" href="${LINKS.waterinfo}" target="_blank" rel="noopener"><span class="label">Level and current</span><span class="val" style="font-size:24px">Waterinfo</span><span class="sub">No live feed yet. Open the official site.</span></a>
     </div>`;
   }
-  function speciesRows(rows) {
-    const line = (r) => {
-      const blocked = !r.legal.ok || !r.sp.recommend;
-      const sub = r.sp.rules.protect && !r.legal.notes.length ? 'Protected: release straight away' : blocked ? (r.legal.notes[0] || 'Not recommended as a target') : `${r.band.label} · ${r.sp.nl}`;
-      return `<button class="row ${blocked ? 'off' : ''}" data-act="species" data-id="${r.sp.id}"><span class="score ${blocked ? '' : 'tone-' + r.band.tone}">${blocked ? '—' : r.score}</span><span><span class="title">${esc(r.sp.name)}</span><span class="sub">${esc(sub)}</span></span><span class="chev" aria-hidden="true">›</span></button>`;
-    };
-    return `<div class="rows">${rows.filter((r) => r.recommended).map(line).join('')}${rows.filter((r) => !r.recommended).map(line).join('')}</div>`;
-  }
   function learningBlock() {
     const n = trips().length;
     if (n >= E.LEARN_FULL) return `<section class="block"><div class="label">Your log</div><p>Your ${n} trips are fully included. Scores can move up to 15 points based on what has worked for you.</p></section>`;
@@ -328,8 +318,8 @@
       <div id="map" role="application" aria-label="Map of fishing spots"></div>
       <p>${esc(E.windAdvice(c))}</p>
       <div class="rows">${list}</div>
-      <div class="btnrow"><button class="btn" data-act="add-spot">Add your own spot</button><a class="btn" href="${LINKS.visplanner}" target="_blank" rel="noopener">Open VISplanner</a></div>
-      <p class="small muted">Spots are starting points close to each water, so walk the bank to find access. Check every water in the VISplanner, and do not fish from bridges, in lock chambers or within 50 m of a fish passage.</p>`;
+      <button class="btn" data-act="add-spot">Add your own spot</button>
+      <p class="small muted">Spots are starting points close to each water, so walk the bank to find access. Check every water in the official VISplanner app, and do not fish from bridges, in lock chambers or within 50 m of a fish passage.</p>`;
   }
   function loadLeaflet() {
     if (window.L) return Promise.resolve();
@@ -396,7 +386,7 @@
     const p = E.computeProgress(state.records), earned = new Set(p.earned.map((a) => a.id));
     const dex = D.SPECIES.map((sp) => {
       const pb = p.stats.pbs[sp.id];
-      return `<button class="dexitem ${pb ? '' : 'locked'}" data-act="species" data-id="${sp.id}">${fishSvg(sp.id)}<b>${pb ? esc(sp.name) : '???'}</b><span class="num">${pb ? (pb.lengthCm ? pb.lengthCm + ' cm' : pb.count + ' caught') + (pb.weightG ? ' · ' + weight(pb.weightG) : '') : esc(sp.nl === 'Paling' || sp.nl === 'Meerval' ? 'Protected' : 'Not caught')}</span></button>`;
+      return `<button class="dexitem ${pb ? '' : 'locked'}" data-act="species" data-id="${sp.id}">${fishSvg(sp.id)}<b>${pb ? esc(sp.name) : '???'}</b><span class="num">${pb ? (pb.lengthCm ? pb.lengthCm + ' cm' : pb.count + ' caught') + (pb.weightG ? ' · ' + weight(pb.weightG) : '') : esc(sp.group === 'Protected' ? 'Protected' : 'Not caught')}</span></button>`;
     }).join('');
     const ach = [...E.ACHIEVEMENTS].sort((a, b) => (earned.has(b.id) ? 1 : 0) - (earned.has(a.id) ? 1 : 0)).map((a) => `<div class="ach ${earned.has(a.id) ? 'done' : ''}"><span class="badge" aria-hidden="true">${earned.has(a.id) ? '★' : ''}</span><span><span class="name">${esc(a.name)}</span><span class="desc">${esc(a.text)}</span></span><span class="pts">${a.xp} XP</span></div>`).join('');
     return `<section class="levelcard"><span class="label" style="color:inherit;opacity:.8">Level ${p.level}</span><div class="lv">${esc(p.title)}</div>
@@ -440,8 +430,8 @@
       <div class="meter">${fishMeter(sp, r.legal.ok && sp.recommend ? r.score + ' out of 100' : (r.legal.notes[0] || 'Not recommended'))}<div class="meter-copy"><div class="meter-score">${r.legal.ok && sp.recommend ? r.score : '—'}<small> /100</small></div><div class="meter-label"><span class="dot bg-${r.band.tone}"></span>${r.legal.ok && sp.recommend ? r.band.label : esc(r.legal.notes[0] || 'Not recommended')}</div></div></div>
       ${win && sp.recommend ? `<p class="num"><strong>Best next:</strong> ${esc(windowText(win))} (${win.score})</p>` : ''}
       ${pb ? `<p class="num"><strong>Your best:</strong> ${pb.lengthCm ? pb.lengthCm + ' cm' : ''}${pb.lengthCm && pb.weightG ? ', ' : ''}${pb.weightG ? weight(pb.weightG) : ''} from ${pb.count} logged</p>` : ''}
-      <section class="block"><h3>Rules</h3><ul style="margin:0;padding-left:20px;display:grid;gap:4px">${ruleLines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><a class="btn" href="${LINKS.visplanner}" target="_blank" rel="noopener">Check this water in VISplanner</a></section>
-      ${sp.recommend ? `<section class="block"><h3>How to fish it now</h3><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div></section>
+      <section class="block"><h3>Rules</h3><ul style="margin:0;padding-left:20px;display:grid;gap:4px">${ruleLines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p class="small muted">Always check the official VISplanner app for the rules on your water.</p></section>
+      ${sp.recommend ? `<section class="block"><h3>How to:</h3><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div></section>
       <section class="block"><h3>Best spots now</h3><div style="display:grid;gap:8px">${spots.map((s) => `<button class="btn" data-act="spot" data-id="${esc(s.spot.id)}" style="justify-content:space-between;text-align:left"><span>${esc(s.spot.name)}</span><span class="muted num" style="font-weight:400;white-space:nowrap">${s.minutes} min</span></button>`).join('')}</div></section>` : ''}
       <section class="block"><h3>Next 48 hours</h3>${hourStrip(sp, { id: 'strip2' })}</section>
       <section class="block"><h3>Why this score</h3><div style="display:grid;gap:11px">${f.map((x) => `<div class="factor"><div class="factor-top"><span>${esc(x.label)}</span><span class="num muted">${Math.round(x.value * 100)}</span></div><div class="factor-bar"><span style="width:${Math.round(x.value * 100)}%"></span></div><span class="small muted">${esc(x.text)}</span></div>`).join('')}
@@ -453,14 +443,14 @@
     const km = E.distanceKm(origin(), s), c = state.weather ? cond(NEEDLE(), s.type) : null;
     const rec = state.records.filter((r) => r.spotId === id), catches = rec.filter((r) => r.type === 'catch');
     const best = c ? D.SPECIES.filter((sp) => sp.recommend).map((sp) => ({ sp, v: (sp.habitat[s.type] || .5) * E.scoreSpecies(sp, c, state.settings).score, ok: E.legalCheck(sp, c, state.settings).ok })).filter((x) => x.ok).sort((a, b) => b.v - a.v).slice(0, 4) : [];
-    const st = s.own ? 'Saved on this phone only. Check that fishing is allowed here.' : s.status === 'listed' ? 'This water is named in the Kleine Lijst van VISwateren 2026. Check the exact bank and local rules in the VISplanner.' : 'Stek could not confirm this water from public VISpas lists. Check it in the VISplanner before fishing.';
+    const st = s.own ? 'Saved on this phone only. Check that fishing is allowed here.' : s.status === 'listed' ? 'This water is named in the Kleine Lijst van VISwateren 2026. Check the exact bank and local rules in the official VISplanner app.' : 'Stek could not confirm this water from public VISpas lists. Check it in the official VISplanner app before fishing.';
     openSheet(s.name, `<div class="go-meta num"><span class="pill">${E.bikeMinutes(km)} min by bike</span><span class="pill">${round(km, 1)} km straight line</span>${statusPill(s)}</div>
       <p>${esc(s.tips || 'Your own spot.')}</p>
       ${c ? `<dl class="kv num"><dt>Water type</dt><dd>${esc((D.WATER_TYPES[s.type] || {}).label || '')}</dd><dt>Water here (estimate)</dt><dd>${round(c.water, 1)} °C</dd><dt>Wind</dt><dd>${esc(E.windAdvice(c))}</dd></dl>` : ''}
       ${best.length ? `<section class="block"><h3>Best fish here now</h3><div class="chips">${best.map((b) => `<button class="chip" data-act="species" data-id="${b.sp.id}">${esc(b.sp.name)}</button>`).join('')}</div></section>` : ''}
       <section class="block"><h3>Your record here</h3><p>${rec.length ? `${catches.length} ${catches.length === 1 ? 'catch' : 'catches'} on ${new Set(rec.map((r) => E.dateKey(r.ts))).size} ${new Set(rec.map((r) => E.dateKey(r.ts))).size === 1 ? 'day' : 'days'}.` : 'Nothing logged here yet.'}</p></section>
-      <section class="block"><h3>Permission</h3><p>${esc(st)}</p>${s.own ? '' : `<button class="btn" data-act="toggle-check" data-id="${esc(s.id)}">${state.checked[s.id] ? 'Remove my VISplanner check' : 'I checked this in the VISplanner'}</button><a class="btn" href="${LINKS.visplanner}" target="_blank" rel="noopener">Open VISplanner</a>`}</section>
-      <div class="btnrow"><a class="btn primary" href="${routeUrl(s)}" target="_blank" rel="noopener">Bike route</a><button class="btn" data-act="add-catch" data-spot="${esc(s.id)}">Log a catch here</button></div>
+      <section class="block"><h3>Permission</h3><p>${esc(st)}</p></section>
+      <a class="btn primary" href="${routeUrl(s)}" target="_blank" rel="noopener">Bike route</a>
       ${s.own ? `<button class="btn danger" data-act="del-spot" data-id="${esc(s.id)}">Delete this spot</button>` : ''}`);
   }
 
@@ -471,7 +461,7 @@
     return rows.map(({ s, km }) => `<option value="${esc(s.id)}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)} (${round(km, 1)} km)</option>`).join('');
   }
   function speciesOptions(sel) {
-    const groups = ['Predator', 'Whitefish', 'Bottom fish', 'Protected'];
+    const groups = ['Predator', 'Whitefish', 'Protected'];
     return groups.map((g) => `<optgroup label="${g}">${D.SPECIES.filter((s) => s.group === g).map((s) => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)} (${esc(s.nl)})</option>`).join('')}</optgroup>`).join('') + `<option value="other" ${sel === 'other' ? 'selected' : ''}>Other fish</option>`;
   }
   let formDraft = {};
@@ -479,9 +469,7 @@
     opts = opts || {};
     const r = opts.record || {}, editing = !!opts.record;
     const def = opts.species || r.speciesId || state.spotSpecies || (state.weather && scored(Date.now()).best ? scored(Date.now()).best.sp.id : 'pike');
-    const lastBaits = [...new Set(state.records.map((x) => x.bait).filter(Boolean))].slice(-20);
-    const baits = ['Soft shad', 'Spinnerbait', 'Jerkbait', 'Spinner', 'Dropshot', 'Dead bait', 'Worm', 'Maggots', 'Sweetcorn', 'Bread', 'Boilie', ...lastBaits];
-    formDraft = { photoBlob: null, released: r.released !== undefined ? r.released : true, removePhoto: false, lat: r.lat, lon: r.lon };
+    formDraft = { photoBlob: null, removePhoto: false, lat: r.lat, lon: r.lon };
     openSheet(editing ? 'Edit catch' : 'Log a catch', `<form id="catch-form" novalidate style="display:grid;gap:14px">
       <label class="photo" id="photo-label">${r.hasPhoto ? `<img id="photo-preview" data-photo="${esc(r.id)}" alt="Catch photo">` : '<span id="photo-empty">Tap to take or choose a photo</span><img id="photo-preview" alt="Catch photo" hidden>'}<input type="file" id="photo-input" accept="image/*"></label>
       <div class="field"><label for="f-species">Fish</label><select id="f-species">${speciesOptions(def)}</select></div>
@@ -489,8 +477,7 @@
       <div class="advice" id="f-advice" aria-live="polite"></div>
       <div class="field"><label for="f-spot">Spot</label><select id="f-spot">${spotOptions(opts.spot || r.spotId)}</select><button type="button" class="btn" data-act="gps-spot">Use my location</button><span class="small muted" id="gps-note"></span></div>
       <div class="field"><label for="f-time">When</label><input id="f-time" type="datetime-local" value="${toLocalInput(r.ts || Date.now())}"></div>
-      <div class="field"><label for="f-bait">Bait or lure</label><input id="f-bait" list="baits" autocomplete="off" value="${esc(r.bait || '')}"><datalist id="baits">${[...new Set(baits)].map((b) => `<option value="${esc(b)}"></option>`).join('')}</datalist></div>
-      <div class="field"><span class="fieldlabel">What happened to the fish</span><div class="seg"><button type="button" data-act="released" data-v="1" aria-pressed="${formDraft.released}">Released</button><button type="button" data-act="released" data-v="0" aria-pressed="${!formDraft.released}">Kept</button></div></div>
+      <div class="field"><label for="f-bait">Bait or lure</label><input id="f-bait" type="text" autocomplete="off" value="${esc(r.bait || '')}"></div>
       <div class="field"><label for="f-note">Note</label><textarea id="f-note">${esc(r.note || '')}</textarea></div>
       <p class="err" id="f-err" hidden></p>
       <button class="btn primary" type="submit">${editing ? 'Save changes' : 'Save catch'}</button>
@@ -544,7 +531,7 @@
     const spotId = $('#f-spot').value, spot = spotById(spotId), speciesId = $('#f-species').value;
     const ctx = old.id && old.ts === ts && old.spotId === spotId && old.speciesId === speciesId ? { cond: old.cond || null, forecast: old.forecast || null } : buildContext(ts, spot, speciesId);
     const rec = { id: old.id || uid(), type: 'catch', ts, speciesId, lengthCm: len || null, weightG: kg ? Math.round(kg * 1000) : null,
-      spotId, spotName: spot ? spot.name : null, bait: $('#f-bait').value.trim() || null, released: formDraft.released,
+      spotId, spotName: spot ? spot.name : null, bait: $('#f-bait').value.trim() || null,
       note: $('#f-note').value.trim() || null, hasPhoto: !!(old.hasPhoto || formDraft.photoBlob), cond: ctx.cond, forecast: ctx.forecast,
       lat: formDraft.lat !== undefined ? formDraft.lat : null, lon: formDraft.lon !== undefined ? formDraft.lon : null };
     try {
@@ -595,7 +582,7 @@
     openSheet(title, `${r.hasPhoto ? `<img class="catchphoto" data-photo="${esc(r.id)}" alt="Photo of your ${esc(title.toLowerCase())}">` : ''}
       <dl class="kv num"><dt>When</dt><dd>${esc(dayLabel(r.ts))}, ${clock(r.ts)}</dd><dt>Spot</dt><dd>${esc(spot ? spot.name : r.spotName || 'Unknown')}</dd>
       ${r.lengthCm ? `<dt>Length</dt><dd>${r.lengthCm} cm</dd>` : ''}${r.weightG ? `<dt>Weight</dt><dd>${weight(r.weightG)}</dd>` : ''}${r.bait ? `<dt>Bait or lure</dt><dd>${esc(r.bait)}</dd>` : ''}
-      ${r.type === 'catch' ? `<dt>Fish</dt><dd>${r.released ? 'Released' : 'Kept'}</dd>` : ''}${r.durationMin ? `<dt>Fished for</dt><dd>${r.durationMin} min</dd>` : ''}${r.forecast && r.forecast.speciesScore !== null ? `<dt>Score then</dt><dd>${r.forecast.speciesScore}</dd>` : ''}${condRows}</dl>
+      ${r.durationMin ? `<dt>Fished for</dt><dd>${r.durationMin} min</dd>` : ''}${r.forecast && r.forecast.speciesScore !== null ? `<dt>Score then</dt><dd>${r.forecast.speciesScore}</dd>` : ''}${condRows}</dl>
       ${c ? '' : '<p class="small muted">No weather saved, because this entry is outside the saved forecast period.</p>'}
       ${r.note ? `<section class="block"><div class="label">Note</div><p>${esc(r.note)}</p></section>` : ''}
       <div class="btnrow">${r.type === 'catch' ? `<button class="btn" data-act="edit-record" data-id="${esc(r.id)}">Edit</button>` : ''}<button class="btn danger" data-act="ask-delete" data-id="${esc(r.id)}">Delete</button></div>`, (el) => hydratePhotos(el));
@@ -654,7 +641,7 @@
         <li>Water temperature is an estimate, not a measurement.</li>
         <li>Current and water level are not measured in the app. Open <a href="${LINKS.waterinfo}" target="_blank" rel="noopener">Waterinfo</a> for official readings.</li>
         <li>Bite scores are informed estimates from general fishing knowledge, plus your own log.</li>
-        <li>Rules come from the ${esc(D.LEGAL.source)}. Rules can differ per water, so the <a href="${LINKS.visplanner}" target="_blank" rel="noopener">VISplanner</a> and your permit always win.</li>
+        <li>Rules come from the ${esc(D.LEGAL.source)}. Rules can differ per water, so the official VISplanner app and your permit always win.</li>
         <li>Map data from OpenStreetMap.</li></ul></section>`, (el) => {
       const f = $('#import-file', el); if (f) f.addEventListener('change', (e) => { const x = e.target.files[0]; if (x) importBackup(x); });
     });
@@ -665,7 +652,7 @@
     toast('Preparing your backup');
     const photos = {};
     for (const r of state.records) if (r.hasPhoto) { const b = await store.get('photos', r.id).catch(() => null); if (b) photos[r.id] = await blobToData(b); }
-    const data = { app: 'stek', version: 1, exportedAt: Date.now(), records: state.records, photos, userSpots: state.userSpots, checked: state.checked, settings: state.settings, measure: state.measure };
+    const data = { app: 'stek', version: 1, exportedAt: Date.now(), records: state.records, photos, userSpots: state.userSpots, settings: state.settings, measure: state.measure };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = `stek-backup-${E.dateKey(Date.now())}.json`; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
@@ -685,7 +672,6 @@
         if (typeof ph === 'string' && ph.startsWith('data:image/')) { const b = await (await fetch(ph)).blob(); await store.put('photos', b, r.id); state.photoUrls.delete(r.id); }
       }
       if (Array.isArray(data.userSpots)) { for (const s of data.userSpots) if (s && s.id && !state.userSpots.some((x) => x.id === s.id)) state.userSpots.push(s); saveKV('userSpots', state.userSpots); }
-      if (data.checked && typeof data.checked === 'object') { Object.assign(state.checked, data.checked); saveKV('checked', state.checked); }
       closeSheet(); render(); toast('Backup restored', `${added} new ${added === 1 ? 'entry' : 'entries'} added.`);
     } catch (e) { toast('That file could not be restored', 'Choose a Stek backup file.'); }
   }
@@ -756,10 +742,8 @@
       case 'confirm-delete': deleteRecord(id); break;
       case 'measure': openMeasure(); break;
       case 'clear-measure': state.measure = null; store.del('kv', 'measure').catch(() => {}); closeSheet(); render(); toast('Reading removed'); break;
-      case 'released': formDraft.released = b.dataset.v === '1'; b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b)); break;
       case 'permit': state.settings.permit = b.dataset.v; saveKV('settings', state.settings); closeSheet(); render(); openSettings(); break;
       case 'theme': state.settings.theme = b.dataset.v; applyTheme(); saveKV('settings', state.settings); closeSheet(); render(); openSettings(); break;
-      case 'toggle-check': if (state.checked[id]) delete state.checked[id]; else state.checked[id] = true; saveKV('checked', state.checked); closeSheet(); render(); openSpot(id); break;
       case 'del-spot': state.userSpots = state.userSpots.filter((s) => s.id !== id); saveKV('userSpots', state.userSpots); closeSheet(); render(); toast('Spot deleted'); break;
       case 'export': exportBackup(); break;
       case 'install': if (deferredInstall) { deferredInstall.prompt(); deferredInstall = null; closeSheet(); render(); } break;
@@ -799,7 +783,7 @@
     if (state.weather && Date.now() - state.weather.fetchedAt > 15 * 60 * 1000) { refresh(); return; }
     /* Move the clock without disturbing an open map or form. */
     const stamp = Math.floor(Date.now() / (5 * 60 * 1000));
-    if (state.tab === 'today' && $('#sheet').hidden) { if (stamp !== state.lastHour) render(); else { const eb = $('.hero .eyebrow span'); if (eb && state.t === null) eb.textContent = 'Today ' + clock(Date.now()); } }
+    if (state.tab === 'today' && $('#sheet').hidden) { if (stamp !== state.lastHour) render(); else { const eb = $('.viewbar .when'); if (eb && state.t === null) eb.textContent = 'Today ' + clock(Date.now()); } }
     paintStatus();
   }, 30000);
 

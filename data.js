@@ -75,8 +75,6 @@
       tips: 'Newer water by Meerstad. Check the VISplanner before fishing.' }
   ];
 
-  const allYear = [.7, .7, .7, .8, .85, .9, .9, .9, .9, .85, .8, .7];
-
   /* temp: [too cold, active from, active to, too warm] in water °C.
      light: how well it feeds by time of day. cloud: extra on an overcast day.
      press: barometer sensitivity. calm: score in flat calm. rain: score in light rain. */
@@ -121,15 +119,6 @@
         warm: { where: 'Open water and fast surface action, mainly early in the day.', rig: 'Long-casting metal lure on a fast retrieve.', bait: 'Silver and white lures.', tip: 'Speed matters. If you cannot get a follow, reel faster.' }
       },
       rules: {} },
-    { id: 'ruffe', name: 'Ruffe', nl: 'Pos', group: 'Bottom fish', recommend: true, kleine: true,
-      temp: [2, 8, 20, 26], light: { dawn: .7, day: .6, dusk: .8, night: .4 }, cloud: .1, press: .2, calm: .7, rain: .7, months: allYear,
-      habitat: { shipcanal: .9, harbour: .85, diep: .6, river: .7, shallowlake: .5, pit: .5, polder: .3 },
-      how: {
-        cold: { where: 'On the bottom near walls and the slope.', rig: 'Light bottom rig or float set to the bottom.', bait: 'Small worm or maggots.', tip: 'A fun species to fill a collection on a slow day.' },
-        mid: { where: 'Muddy bottom close to the bank.', rig: 'Light float rig, small hook.', bait: 'Worm or maggots.', tip: 'Keep the bait on the bottom.' },
-        warm: { where: 'Deeper water and shade.', rig: 'Light bottom rig.', bait: 'Worm.', tip: 'Handle with care because of the spiny fin.' }
-      },
-      rules: {} },
     { id: 'carp', name: 'Carp', nl: 'Karper', group: 'Whitefish', recommend: true, kleine: true,
       temp: [8, 16, 26, 30], light: { dawn: .95, day: .55, dusk: .8, night: .8 }, cloud: .1, press: .5, calm: 1, rain: .8,
       months: [.1, .1, .2, .4, .7, .9, 1, 1, .9, .6, .3, .1],
@@ -168,16 +157,6 @@
         cold: { where: 'Deeper water and sheltered basins. Bream shoals move slowly.', rig: 'Light feeder or float on the bottom.', bait: 'Worm and maggots with little feed.', tip: 'Start with a small amount of feed. You can always add more.' },
         mid: { where: 'Across the canal at the foot of the slope.', rig: 'Feeder or waggler.', bait: 'Maggots, worm, sweetcorn.', tip: 'Feed regularly to hold the shoal in one place.' },
         warm: { where: 'Far side of the canal and deeper water in daytime, closer at dusk.', rig: 'Feeder or float.', bait: 'Sweetcorn, worm.', tip: 'Evening is usually best. Note: keepnets may only be used from sunrise to sunset.' }
-      },
-      rules: {} },
-    { id: 'silver', name: 'Silver bream', nl: 'Kolblei', group: 'Whitefish', recommend: true, kleine: true,
-      temp: [5, 11, 22, 27], light: { dawn: .85, day: .6, dusk: .95, night: .5 }, cloud: .15, press: .4, calm: .7, rain: .8,
-      months: [.35, .35, .45, .6, .8, .9, 1, 1, .9, .7, .5, .4],
-      habitat: { shipcanal: .85, harbour: .8, diep: .75, river: .75, shallowlake: .7, pit: .6, polder: .4 },
-      how: {
-        cold: { where: 'Sheltered harbours, close to the bottom.', rig: 'Light float.', bait: 'Maggot.', tip: 'Use a small hook and fine line.' },
-        mid: { where: 'Canal edges and harbours, on or just above the bottom.', rig: 'Light float or small feeder.', bait: 'Maggots, worm pieces.', tip: 'Small amounts of feed keep them working.' },
-        warm: { where: 'Edges and shade.', rig: 'Light float.', bait: 'Maggots.', tip: 'Often mixed with young bream, so look closely when you log it.' }
       },
       rules: {} },
     { id: 'roach', name: 'Roach', nl: 'Blankvoorn', group: 'Whitefish', recommend: true, kleine: true,
@@ -220,16 +199,6 @@
         warm: { where: 'Surface layer near harbours and quays.', rig: 'Whip with a tiny float.', bait: 'Maggot.', tip: 'Quick fishing and a good way to catch your own count on a slow day.' }
       },
       rules: {} },
-    { id: 'eel', name: 'Eel', nl: 'Paling', group: 'Protected', recommend: false, kleine: true,
-      temp: [10, 15, 25, 30], light: { dawn: .4, day: .1, dusk: .7, night: 1 }, cloud: .1, press: .5, calm: .8, rain: 1,
-      months: [.05, .05, .1, .4, .8, 1, 1, 1, .8, .4, .1, .05],
-      habitat: { shipcanal: .7, harbour: .7, diep: .7, river: .8, shallowlake: .7, pit: .5, polder: .7 },
-      how: {
-        cold: { where: 'Not active in cold water.', rig: 'Not recommended.', bait: 'None.', tip: 'If you catch one, release it straight away.' },
-        mid: { where: 'Not recommended as a target. Eel is a protected, threatened species.', rig: 'None.', bait: 'None.', tip: 'If you catch one, release it straight away.' },
-        warm: { where: 'Not recommended as a target. Eel is a protected, threatened species.', rig: 'None.', bait: 'None.', tip: 'A photo first is allowed. Release it straight away, unharmed, in the same water.' }
-      },
-      rules: { release: true, protect: 'Eel must go straight back, alive and unharmed, into the same water.' } },
     { id: 'catfish', name: 'Wels catfish', nl: 'Meerval', group: 'Protected', recommend: false, kleine: false,
       temp: [10, 16, 26, 30], light: { dawn: .6, day: .2, dusk: .8, night: 1 }, cloud: .1, press: .7, calm: .8, rain: .9,
       months: [.05, .05, .1, .3, .6, .8, 1, 1, .8, .5, .1, .05],

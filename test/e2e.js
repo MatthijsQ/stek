@@ -58,7 +58,7 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   assert((await page.textContent('.eyebrow')).includes('Today'), 'shows today and the time');
   for (const lbl of ['Air', 'Water', 'Air pressure', 'Wind', 'Surface drift', 'Rain', 'Cloud', 'Moon', 'Humidity', 'Visibility', 'Level and current']) assert(await page.locator(`.cell .label:text-is("${lbl}")`).count() === 1, 'condition shown: ' + lbl);
   assert((await page.locator('.cell:has(.label:text-is("Air pressure")) .val').textContent()).includes('1031'), 'live pressure is used');
-  assert(await page.locator('.rows .row').count() === 16, 'all 16 species listed');
+  assert(!(await page.textContent('#view')).includes('Every fish'), 'Every fish section is gone');
   assert(await page.locator('.hr').count() >= 47, '48-hour strip');
   await noOverflow('today');
   await shot('01-today');
@@ -66,7 +66,7 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   // The fish picker switches the whole screen
   assert(await page.locator('.go').count() === 0, 'Go here block is gone');
   assert(await page.locator('.hero h1 .fishname').count() === 1, 'fish name is highlighted');
-  assert(await page.locator('.pickgrid .chip').count() === 16, 'picker offers all 16 fish');
+  assert(await page.locator('.pickgrid .chip').count() === 13, 'picker offers all 13 fish');
   await page.locator('.pickgrid .chip:text-is("Carp")').click();
   await page.waitForTimeout(100);
   assert(/for carp/.test(await page.textContent('.hero h1')), 'picking carp switches the headline: ' + (await page.textContent('.hero h1')));
@@ -75,16 +75,16 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   assert(/carp guide/.test(await page.textContent('#view')), 'how-to follows the fish');
   assert((await page.locator('.meter > svg').getAttribute('aria-label')).startsWith('Carp'), 'score picture shows the fish');
   assert(await page.textContent('#view').then((t) => !t.includes('Also on')), 'Also on is gone');
-  assert(await page.evaluate(() => { const c = document.querySelector('.pickgrid'), h = [...document.querySelectorAll('.block')].find((b) => b.textContent.includes('How to fish it')); return !!(h.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING); }), 'how to fish it comes before the picker');
+  assert(await page.evaluate(() => { const c = document.querySelector('.pickgrid'), h = [...document.querySelectorAll('.block')].find((b) => b.textContent.includes('How to:')); return !!(h.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING); }), 'how to fish it comes before the picker');
   const toneOf = (name) => page.locator(`.pickgrid .chip:text-is("${name}")`).evaluate((c) => c.className);
-  assert(/pick-off/.test(await toneOf('Eel')), 'protected fish is grey');
-  assert(await page.evaluate(() => { const col = (n) => getComputedStyle([...document.querySelectorAll('.pickgrid .chip')].find((c) => c.textContent === n)).color; return col('Eel') !== col('Zander'); }), 'names have different colours');
+  assert(/pick-off/.test(await toneOf('Wels catfish')), 'protected fish is grey');
+  assert(await page.evaluate(() => { const col = (n) => getComputedStyle([...document.querySelectorAll('.pickgrid .chip')].find((c) => c.textContent === n)).color; return col('Wels catfish') !== col('Zander'); }), 'names have different colours');
   assert(new Set(await page.locator('.pickgrid .chip').evaluateAll((a) => a.map((c) => c.className.match(/pick-\w+/)[0]))).size >= 2, 'picker colours vary with the score');
   await shot('10-focus-carp');
-  await page.locator('.pickgrid .chip:text-is("Eel")').click();
+  await page.locator('.pickgrid .chip:text-is("Wels catfish")').click();
   await page.waitForTimeout(100);
-  assert(/is protected/.test(await page.textContent('.hero h1')), 'eel shows as protected: ' + (await page.textContent('.hero h1')));
-  await noOverflow('focus eel');
+  assert(/is closed/.test(await page.textContent('.hero h1')), 'catfish shows as closed: ' + (await page.textContent('.hero h1')));
+  await noOverflow('focus catfish');
   await page.click('[data-act="focus-clear"]');
   await page.waitForTimeout(100);
   assert(h1 === await page.textContent('.hero h1'), 'back to the top pick');
@@ -92,14 +92,19 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   // Choose an hour in the strip
   await page.locator('.hr').nth(20).click();
   await page.waitForTimeout(100);
-  assert(await page.locator('[data-act="now"]').count() === 1, 'can pick a future hour');
+  assert(await page.locator('.backpill[data-act="now"]').count() === 1, 'Back to now is a button');
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await page.waitForTimeout(100);
+  assert(await page.locator('.viewbar').evaluate((b) => { const r = b.getBoundingClientRect(); return r.top >= 0 && r.top < 80; }), 'way back stays on screen while scrolling');
+  await shot('11-viewbar');
   await page.click('[data-act="now"]');
 
   // Species guide
-  await page.locator('.rows .row').first().click();
+  await page.locator('#view [data-act="species"]').first().click();
   await page.waitForSelector('#sheet .factor');
   assert(await page.locator('#sheet .factor').count() === 7, 'species guide explains 7 factors');
   await noOverflow('species');
+  assert((await page.textContent('#sheet')).includes('official VISplanner app') && await page.locator('#sheet a:has-text("VISplanner")').count() === 0, 'rules show text, no VISplanner button');
   await page.locator('#sheet').evaluate((n) => { n.style.position = 'static'; n.style.overflow = 'visible'; });
   await shot('02-species');
   await page.locator('#sheet').evaluate((n) => { n.style.position = ''; n.style.overflow = ''; });
@@ -119,6 +124,8 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await page.locator('.rows .row').first().click();
   await page.waitForSelector('#sheet [data-act="close"]');
   await page.locator('#sheet a:has-text("Bike route")').first().waitFor();
+  const spotSheet = await page.textContent('#sheet');
+  assert(!spotSheet.includes('Log a catch here') && !spotSheet.includes('I checked') && await page.locator('#sheet a:has-text("VISplanner")').count() === 0, 'spot page has no extra buttons');
   assert((await page.locator('#sheet a:has-text("Bike route")').getAttribute('href')).includes('travelmode=bicycling'), 'bike route link');
   await page.click('#sheet [data-act="close"]');
 
@@ -152,6 +159,9 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await page.waitForFunction(() => document.querySelector('#gps-note').textContent.includes('Nearest'));
   assert((await page.locator('#f-spot').evaluate((s) => s.selectedOptions[0].textContent)).includes('Secret bend'), 'location selects the nearest spot');
   await page.fill('#f-bait', 'Soft shad');
+  assert(await page.locator('#f-bait').getAttribute('list') === null, 'bait is free text');
+  assert(!(await page.textContent('#catch-form')).includes('What happened'), 'kept or released is gone');
+  assert(!(await page.textContent('#f-advice')).includes('Keep at most'), 'no keep limits while logging');
   await page.locator('#sheet').evaluate((n) => { n.style.position = 'static'; n.style.overflow = 'visible'; });
   await shot('05-catch-form');
   await page.locator('#sheet').evaluate((n) => { n.style.position = ''; n.style.overflow = ''; });

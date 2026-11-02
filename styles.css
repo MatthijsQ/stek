@@ -69,7 +69,11 @@ button { cursor: pointer; }
 .eyebrow { font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 8px; }
 .hero h1 { font-size: clamp(38px, 11.5vw, 54px); font-weight: 700; letter-spacing: -.005em; }
 .fishname { color: var(--float); }
-.btn.link.inline { min-height: 0; padding: 0; font-size: inherit; }
+.viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 14px; color: var(--muted); }
+.viewbar.away { position: sticky; top: calc(53px + env(safe-area-inset-top, 0px)); z-index: 10; background: var(--bg); margin-block: -8px; padding-block: 8px; color: var(--ink); font-weight: 700; }
+.viewbar .when { margin-right: auto; }
+.backpill { min-height: 38px; padding: 5px 13px; border: 0; border-radius: 99px; background: var(--float); color: var(--float-ink); font: 700 14.5px var(--body); white-space: nowrap; box-shadow: var(--shadow); }
+.backpill:active { filter: brightness(.9); }
 .pickgrid { display: flex; flex-wrap: wrap; gap: 7px; }
 .pickgrid .chip { color: var(--pick); }
 .pick-good { --pick: var(--good); } .pick-warn { --pick: var(--warn); } .pick-bad { --pick: var(--bad); } .pick-off { --pick: var(--muted); }

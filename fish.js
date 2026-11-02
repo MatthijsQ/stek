@@ -33,12 +33,6 @@
       fins: [{ at: 'top', from: .46, to: .6, h: 11, style: 'tall', sweep: 5 }, { at: 'bot', from: .66, to: .86, h: 8.5, style: 'tall', sweep: 4 }, { at: 'bot', from: .42, to: .51, h: 6, style: 'tall', sweep: 3 }],
       tail: { type: 'fork', spread: 14, depth: 10, len: 20 }, eye: [.1, -1.7, 1.6], pect: [.21, 3.4, 9], mouth: [.14, .6]
     },
-    ruffe: {
-      top: [[0, 1.4], [.08, 4], [.18, 8.4], [.3, 11.4], [.5, 10.6], [.75, 7], [1, 3.4]],
-      bot: [[0, 1.8], [.1, 5.4], [.26, 10], [.45, 10.8], [.72, 7.4], [1, 3.4]],
-      fins: [{ at: 'top', from: .28, to: .84, h: 9, style: 'spiky', spikes: 11, sweep: 2 }, { at: 'bot', from: .66, to: .82, h: 7.5, style: 'tall', sweep: 3 }, { at: 'bot', from: .34, to: .44, h: 6, style: 'round', sweep: 3 }],
-      tail: { type: 'fork', spread: 10, depth: 3, len: 14 }, eye: [.15, -3, 2.6], pect: [.28, 3, 8], mouth: [.09, 2], scale: .84
-    },
     carp: {
       top: [[0, 1.6], [.07, 4], [.17, 9], [.3, 13.6], [.44, 15], [.66, 11.8], [.88, 6.2], [1, 4.2]],
       bot: [[0, 2.2], [.08, 5.2], [.2, 9.4], [.42, 12.2], [.68, 9.2], [.88, 5.6], [1, 4.2]],
@@ -65,12 +59,6 @@
       fins: [{ at: 'top', from: .47, to: .61, h: 9, style: 'tall', sweep: 4 }, { at: 'bot', from: .54, to: .93, h: 7.5, style: 'tall', sweep: 3 }, { at: 'bot', from: .33, to: .42, h: 7, style: 'tall', sweep: 3 }],
       tail: { type: 'fork', spread: 14, depth: 8, len: 19 }, eye: [.1, -1.4, 1.6], pect: [.18, 4.4, 9], mouth: [.04, 1.4]
     },
-    silver: {
-      top: [[0, 1], [.06, 3], [.15, 7.4], [.28, 13], [.42, 15.4], [.68, 11], [.88, 5], [1, 2.6]],
-      bot: [[0, 1.4], [.07, 3.8], [.17, 7.6], [.34, 13], [.5, 15], [.72, 10.8], [.9, 5], [1, 2.6]],
-      fins: [{ at: 'top', from: .47, to: .6, h: 8.5, style: 'tall', sweep: 4 }, { at: 'bot', from: .56, to: .88, h: 7, style: 'tall', sweep: 3 }, { at: 'bot', from: .35, to: .44, h: 6, style: 'tall', sweep: 3 }],
-      tail: { type: 'fork', spread: 12, depth: 7, len: 17 }, eye: [.12, -2, 2.6], pect: [.2, 3.8, 8], mouth: [.05, 1.2], scale: .9
-    },
     roach: {
       top: [[0, 1.2], [.07, 3.6], [.17, 7.6], [.32, 11.4], [.46, 12.2], [.7, 8.8], [.88, 5], [1, 3.2]],
       bot: [[0, 1.6], [.08, 4.2], [.2, 8], [.42, 11.8], [.68, 8.8], [.88, 4.8], [1, 3.2]],
@@ -94,12 +82,6 @@
       bot: [[0, .8], [.07, 3], [.2, 6.4], [.42, 8.6], [.66, 7], [.84, 3.8], [1, 2.2]],
       fins: [{ at: 'top', from: .55, to: .66, h: 7, style: 'tall', sweep: 3 }, { at: 'bot', from: .62, to: .87, h: 6.5, style: 'tall', sweep: 3 }, { at: 'bot', from: .44, to: .52, h: 4.5, style: 'tall', sweep: 2 }],
       tail: { type: 'fork', spread: 11, depth: 8, len: 17 }, eye: [.1, -.7, 2], pect: [.2, 2.8, 7], mouth: [.05, 1.2, true]
-    },
-    eel: {
-      top: [[0, 1], [.05, 2], [.12, 3.2], [.25, 4], [.5, 4], [.75, 3.2], [.92, 1.8], [1, .6]],
-      bot: [[0, 1.2], [.05, 2.2], [.12, 3.4], [.25, 4.1], [.5, 4.1], [.75, 3.2], [.92, 1.8], [1, .6]],
-      fins: [{ at: 'top', from: .3, to: 1, h: 2.6, style: 'ribbon' }, { at: 'bot', from: .42, to: 1, h: 2.6, style: 'ribbon' }],
-      tail: null, eye: [.055, -.8, 1.15], pect: [.15, 1, 4.5], mouth: [.05, .9], wave: 7, extend: 16
     },
     catfish: {
       top: [[0, 3], [.05, 5], [.14, 7.8], [.28, 10], [.42, 9.6], [.68, 6.2], [.88, 3.6], [1, 2.2]],
