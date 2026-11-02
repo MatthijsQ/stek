@@ -18,11 +18,11 @@
 
   const state = {
     tab: 'today', weather: null, error: null, loading: false, t: null, focus: null,
-    settings: { permit: 'full', theme: 'auto', origin: null }, measure: null,
-    records: [], userSpots: [], spotSpecies: null, backupAt: 0, installDismissed: false,
+    settings: { permit: 'full', theme: 'auto' }, measure: null,
+    records: [], backupAt: 0, installDismissed: false,
     photoUrls: new Map(), lastHour: null
   };
-  let deferredInstall = null, map = null, mapLayer = null;
+  let deferredInstall = null;
 
   /* ---------- Small helpers ---------- */
   const $ = (s, r) => (r || document).querySelector(s);
@@ -45,10 +45,6 @@
     const same = E.dateKey(w.from) === E.dateKey(w.to);
     return `${dayLabel(w.from)} ${clock(w.from)} to ${same ? '' : dayLabel(w.to) + ' '}${clock(w.to)}`;
   };
-  const allSpots = () => state.userSpots.concat(D.SPOTS);
-  const spotById = (id) => allSpots().find((s) => s.id === id);
-  const origin = () => state.settings.origin || D.CENTER;
-  const routeUrl = (s) => `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}&travelmode=bicycling`;
   const NEEDLE = () => (state.t === null ? Date.now() : state.t);
 
   /* ---------- Device storage ---------- */
@@ -78,9 +74,9 @@
   async function loadAll() {
     try {
       state.records = await store.all('records');
-      const [settings, measure, spots, cached, backupAt, dismissed] = await Promise.all(['settings', 'measure', 'userSpots', 'weather', 'backupAt', 'installDismissed'].map((k) => store.get('kv', k)));
+      const [settings, measure, cached, backupAt, dismissed] = await Promise.all(['settings', 'measure', 'weather', 'backupAt', 'installDismissed'].map((k) => store.get('kv', k)));
       if (settings) Object.assign(state.settings, settings);
-      state.measure = measure || null; state.userSpots = spots || [];
+      state.measure = measure || null;
       state.backupAt = backupAt || 0; state.installDismissed = !!dismissed;
       if (cached && cached.hourly) state.weather = cached;
     } catch (e) { state.storageError = true; }
@@ -168,9 +164,6 @@
   function snapshot(c) {
     return { water: c.water, air: c.air, press: c.press, d3: c.d3, pressClass: c.pressClass, wind: c.wind, windClass: c.windClass, gust: c.gust, dir: c.dir, code: c.code, cloud: c.cloud, precip: c.precip, daypart: c.daypart, night: c.night, sunrise: c.sunrise, sunset: c.sunset, moon: c.moon.name };
   }
-  function spotsFor(sp, c) {
-    return E.rankSpots(sp, c, allSpots(), { origin: origin(), settings: state.settings, spotLift: E.spotLifter(sp.id, trips()) });
-  }
   function alertsFor(c) {
     const a = [];
     if (c.thunder) a.push(['bad', 'Thunderstorm', 'A carbon rod is a lightning conductor. Put it down and get away from the water.']);
@@ -222,6 +215,11 @@
     return `<svg class="spark" viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true"><path d="${line}" fill="none" stroke="var(--water)" stroke-width="2" vector-effect="non-scaling-stroke"/><circle cx="${x(closest[0])}" cy="${y(closest[1])}" r="3" fill="var(--float)"/></svg>`;
   }
 
+  function howRows(sp, how) {
+    const tips = D.WATER_TIPS[sp.id];
+    return `<div class="howgrid"><div><span class="label">Now</span><span>${esc(how.where)}</span></div>${tips ? `<div><span class="label">Canals</span><span>${esc(tips.canal)}</span></div><div><span class="label">Lakes</span><span>${esc(tips.lake)}</span></div><div><span class="label">Small water</span><span>${esc(tips.small)}</span></div>` : ''}<div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div>`;
+  }
+
   /* ---------- Today ---------- */
   function renderToday() {
     const w = state.weather;
@@ -252,20 +250,15 @@
         ${win ? `<p class="num"><strong>Best in the next 36 hours:</strong> ${esc(windowText(win))} (${win.score})</p>` : ''}
       </section>
       ${alerts.length ? `<div style="display:grid;gap:8px">${alertHTML(alerts)}</div>` : ''}
-      <section class="block"><div class="label">How to:</div><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div>
+      <section class="block"><div class="label">How to:</div>${howRows(sp, how)}
         <button class="btn" data-act="species" data-id="${sp.id}">Full ${esc(sp.name.toLowerCase())} guide and rules</button></section>
       ${picker}`;
     }
     return `${installBanner()}${hero}
       <section class="block"><div class="sectionhead"><h2>Next 48 hours</h2><span class="aside">${esc(stripSp.name)}</span></div>${hourStrip(stripSp)}<p class="small muted">Tap an hour to see that moment.</p></section>
-      <section style="display:grid;gap:8px"><div class="sectionhead"><h2>Conditions</h2><span class="aside num">${esc(E.weatherText(c.code))}</span></div>${conditionsGrid(c, w)}</section>
+      <section style="display:grid;gap:8px"><div class="sectionhead"><h2>Conditions</h2><span class="aside num">Groningen \u00B7 ${esc(E.weatherText(c.code))}</span></div>${conditionsGrid(c, w)}</section>
       ${learningBlock()}
       <p class="foot">Scores are estimates built from general fishing knowledge and your log. Weather by ${w.source === 'brightsky' ? '<a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a> with data from Deutscher Wetterdienst' : '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'}. Always check the rules in the official VISplanner app.</p>`;
-  }
-  function statusPill(s) {
-    if (s.own) return '<span class="pill info">Your spot</span>';
-    if (s.status === 'listed') return '<span class="pill info">On 2026 Kleine Lijst</span>';
-    return '<span class="pill warn">Check VISplanner</span>';
   }
   function conditionsGrid(c, w) {
     const bft = E.beaufort(c.wind), rainNext = (() => {
@@ -304,48 +297,6 @@
     return `<div class="alert info"><span class="sym" aria-hidden="true">i</span><div><strong>Add Stek to your home screen</strong><div class="btnrow" style="margin-top:8px"><button class="btn primary" data-act="install">Install</button><button class="btn" data-act="dismiss-install">Not now</button></div></div></div>`;
   }
 
-  /* ---------- Spots ---------- */
-  function renderSpots() {
-    if (!state.weather) return renderToday();
-    const t = NEEDLE(), { c, rows, best } = scored(t);
-    const sel = state.spotSpecies || state.focus || (best ? best.sp.id : 'pike'), sp = E.speciesById(sel), ranked = spotsFor(sp, c);
-    const chips = rows.filter((r) => r.sp.recommend).map((r) => `<button class="chip" data-act="spot-species" data-id="${r.sp.id}" aria-pressed="${r.sp.id === sel}">${esc(r.sp.name)}</button>`).join('');
-    const list = ranked.map((r, i) => `<button class="row" data-act="spot" data-id="${esc(r.spot.id)}"><span class="score ${i < 3 ? 'tone-good' : 'muted'}">${i + 1}</span><span><span class="title">${esc(r.spot.name)}</span><span class="sub num">${r.minutes} min by bike · ${esc((D.WATER_TYPES[r.spot.type] || {}).label || '')}${r.why.length ? ' · ' + esc(r.why[0]) : ''}</span><span style="display:block;margin-top:4px">${statusPill(r.spot)}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('');
-    const from = state.settings.origin ? 'your location' : 'the city centre';
-    setTimeout(() => drawMap(ranked), 0);
-    return `<section style="display:grid;gap:8px"><h1 style="font-size:38px;font-weight:700">Where to fish</h1><p>Ranked for <strong>${esc(sp.name.toLowerCase())}</strong> in today's conditions, from ${from}.</p><div class="chips">${chips}</div></section>
-      <div id="map" role="application" aria-label="Map of fishing spots"></div>
-      <p>${esc(E.windAdvice(c))}</p>
-      <div class="rows">${list}</div>
-      <button class="btn" data-act="add-spot">Add your own spot</button>
-      <p class="small muted">Spots are starting points close to each water, so walk the bank to find access. Check every water in the official VISplanner app, and do not fish from bridges, in lock chambers or within 50 m of a fish passage.</p>`;
-  }
-  function loadLeaflet() {
-    if (window.L) return Promise.resolve();
-    if (loadLeaflet.p) return loadLeaflet.p;
-    return (loadLeaflet.p = new Promise((res, rej) => {
-      const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'vendor/leaflet.css'; document.head.appendChild(css);
-      const s = document.createElement('script'); s.src = 'vendor/leaflet.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s);
-    }));
-  }
-  async function drawMap(ranked) {
-    const el = $('#map'); if (!el) return;
-    try { await loadLeaflet(); } catch (e) { el.innerHTML = '<p style="padding:16px">The map could not load. The list below still works.</p>'; return; }
-    if (!$('#map')) return;
-    if (map) { map.remove(); map = null; }
-    map = L.map(el, { zoomControl: true, attributionControl: true, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false }).setView([LAT, LON], 11, { animate: false });
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map);
-    mapLayer = L.layerGroup().addTo(map);
-    ranked.forEach((r, i) => {
-      const color = r.spot.own ? '#7a4fb5' : r.spot.status === 'listed' ? '#2f6f73' : '#9a6400';
-      const icon = i < 3
-        ? L.divIcon({ className: '', html: `<div class="rank-pin" style="background:#d9471a">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] })
-        : L.divIcon({ className: '', html: `<div class="rank-pin" style="background:${color};width:16px;height:16px"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
-      L.marker([r.spot.lat, r.spot.lon], { icon, title: r.spot.name, keyboard: true, alt: r.spot.name }).on('click', () => openSpot(r.spot.id)).addTo(mapLayer);
-    });
-    if (ranked.length) { const b = L.latLngBounds(ranked.slice(0, 8).map((r) => [r.spot.lat, r.spot.lon])); map.fitBounds(b.pad(.12), { animate: false, maxZoom: 14 }); }
-  }
-
   /* ---------- Log ---------- */
   function photoURL(id) {
     if (state.photoUrls.has(id)) return Promise.resolve(state.photoUrls.get(id));
@@ -366,10 +317,10 @@
     rec.forEach((r) => {
       const k = E.dateKey(r.ts);
       if (k !== lastDay) { flush(); list += `<div class="label datehead">${esc(dayLabel(r.ts))}</div>`; lastDay = k; }
-      const sp = E.speciesById(r.speciesId), spot = spotById(r.spotId), name = r.type === 'blank' ? 'No catch' : sp ? sp.name : 'Other fish';
+      const sp = E.speciesById(r.speciesId), name = r.type === 'blank' ? 'No catch' : sp ? sp.name : 'Other fish';
       const bits = r.type === 'blank' ? [r.durationMin ? r.durationMin + ' min' : null, r.targetId && E.speciesById(r.targetId) ? 'Target: ' + E.speciesById(r.targetId).name : null] : [r.lengthCm ? r.lengthCm + ' cm' : null, r.weightG ? weight(r.weightG) : null, r.bait];
       const pic = r.hasPhoto ? `<img class="thumb" data-photo="${esc(r.id)}" alt="">` : `<span class="thumb">${r.type === 'blank' ? '—' : fishSvg(sp ? sp.id : 'roach').replace('<svg', '<svg width="56"')}</span>`;
-      group += `<button class="entry" data-act="record" data-id="${esc(r.id)}">${pic}<span><span class="title">${esc(name)}</span><span class="sub num">${clock(r.ts)} · ${esc(spot ? spot.name : r.spotName || 'Unknown spot')}</span><span class="sub num">${esc(bits.filter(Boolean).join(' · '))}</span></span></button>`;
+      group += `<button class="entry" data-act="record" data-id="${esc(r.id)}">${pic}<span><span class="title">${esc(name)}</span><span class="sub num">${clock(r.ts)}</span><span class="sub num">${esc(bits.filter(Boolean).join(' · '))}</span></span></button>`;
     });
     flush();
     setTimeout(() => hydratePhotos($('#view')), 0);
@@ -410,7 +361,7 @@
     const sp = E.speciesById(id);
     if (!state.weather) return;
     const t = NEEDLE(), c = cond(t), tr = trips(), p = E.personalAdjust(sp.id, condForLearn(c), tr), r = E.scoreSpecies(sp, c, state.settings, p);
-    const how = E.howTo(sp, c), f = E.explainFactors(r, c), spots = spotsFor(sp, c).slice(0, 3), rules = sp.rules || {}, closed = E.closedStatus(sp, t);
+    const how = E.howTo(sp, c), f = E.explainFactors(r, c), rules = sp.rules || {}, closed = E.closedStatus(sp, t);
     const pb = E.computeStats(state.records).pbs[sp.id];
     const win = E.bestWindow(state.weather, sp.id, Date.now(), 36, { settings: state.settings, measure: state.measure }).best;
     const ruleLines = [];
@@ -430,35 +381,13 @@
       ${win && sp.recommend ? `<p class="num"><strong>Best next:</strong> ${esc(windowText(win))} (${win.score})</p>` : ''}
       ${pb ? `<p class="num"><strong>Your best:</strong> ${pb.lengthCm ? pb.lengthCm + ' cm' : ''}${pb.lengthCm && pb.weightG ? ', ' : ''}${pb.weightG ? weight(pb.weightG) : ''} from ${pb.count} logged</p>` : ''}
       <section class="block"><h3>Rules</h3><ul style="margin:0;padding-left:20px;display:grid;gap:4px">${ruleLines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p class="small muted">Always check the official VISplanner app for the rules on your water.</p></section>
-      ${sp.recommend ? `<section class="block"><h3>How to:</h3><div class="howgrid"><div><span class="label">Where</span><span>${esc(how.where)}</span></div><div><span class="label">Rig</span><span>${esc(how.rig)}</span></div><div><span class="label">Bait</span><span>${esc(how.bait)}</span></div><div><span class="label">Tip</span><span>${esc(how.tip)}</span></div></div></section>
-      <section class="block"><h3>Best spots now</h3><div style="display:grid;gap:8px">${spots.map((s) => `<button class="btn" data-act="spot" data-id="${esc(s.spot.id)}" style="justify-content:space-between;text-align:left"><span>${esc(s.spot.name)}</span><span class="muted num" style="font-weight:400;white-space:nowrap">${s.minutes} min</span></button>`).join('')}</div></section>` : ''}
+      ${sp.recommend ? `<section class="block"><h3>How to:</h3>${howRows(sp, how)}</section>` : ''}
       <section class="block"><h3>Next 48 hours</h3>${hourStrip(sp, { id: 'strip2' })}</section>
       <section class="block"><h3>Why this score</h3><div style="display:grid;gap:11px">${f.map((x) => `<div class="factor"><div class="factor-top"><span>${esc(x.label)}</span><span class="num muted">${Math.round(x.value * 100)}</span></div><div class="factor-bar"><span style="width:${Math.round(x.value * 100)}%"></span></div><span class="small muted">${esc(x.text)}</span></div>`).join('')}
         ${p.points ? `<div class="alert info"><span class="sym" aria-hidden="true">i</span><div><strong>Your log: ${signed(p.points, 0)} points</strong>Based on ${p.trips} logged trips, looking at ${esc(p.parts.map((x) => x.label).join(', '))}.</div></div>` : ''}</div></section>
       <button class="btn primary" data-act="add-catch" data-species="${sp.id}">Log a ${esc(sp.name.toLowerCase())}</button>`);
   }
-  function openSpot(id) {
-    const s = spotById(id); if (!s) return;
-    const km = E.distanceKm(origin(), s), c = state.weather ? cond(NEEDLE(), s.type) : null;
-    const rec = state.records.filter((r) => r.spotId === id), catches = rec.filter((r) => r.type === 'catch');
-    const best = c ? D.SPECIES.filter((sp) => sp.recommend).map((sp) => ({ sp, v: (sp.habitat[s.type] || .5) * E.scoreSpecies(sp, c, state.settings).score, ok: E.legalCheck(sp, c, state.settings).ok })).filter((x) => x.ok).sort((a, b) => b.v - a.v).slice(0, 4) : [];
-    const st = s.own ? 'Saved on this phone only. Check that fishing is allowed here.' : s.status === 'listed' ? 'This water is named in the Kleine Lijst van VISwateren 2026. Check the exact bank and local rules in the official VISplanner app.' : 'Stek could not confirm this water from public VISpas lists. Check it in the official VISplanner app before fishing.';
-    openSheet(s.name, `<div class="go-meta num"><span class="pill">${E.bikeMinutes(km)} min by bike</span><span class="pill">${round(km, 1)} km straight line</span>${statusPill(s)}</div>
-      <p>${esc(s.tips || 'Your own spot.')}</p>
-      ${c ? `<dl class="kv num"><dt>Water type</dt><dd>${esc((D.WATER_TYPES[s.type] || {}).label || '')}</dd><dt>Water here (estimate)</dt><dd>${round(c.water, 1)} °C</dd><dt>Wind</dt><dd>${esc(E.windAdvice(c))}</dd></dl>` : ''}
-      ${best.length ? `<section class="block"><h3>Best fish here now</h3><div class="chips">${best.map((b) => `<button class="chip" data-act="species" data-id="${b.sp.id}">${esc(b.sp.name)}</button>`).join('')}</div></section>` : ''}
-      <section class="block"><h3>Your record here</h3><p>${rec.length ? `${catches.length} ${catches.length === 1 ? 'catch' : 'catches'} on ${new Set(rec.map((r) => E.dateKey(r.ts))).size} ${new Set(rec.map((r) => E.dateKey(r.ts))).size === 1 ? 'day' : 'days'}.` : 'Nothing logged here yet.'}</p></section>
-      <section class="block"><h3>Permission</h3><p>${esc(st)}</p></section>
-      <a class="btn primary" href="${routeUrl(s)}" target="_blank" rel="noopener">Bike route</a>
-      ${s.own ? `<button class="btn danger" data-act="del-spot" data-id="${esc(s.id)}">Delete this spot</button>` : ''}`);
-  }
-
   /* Forms */
-  function spotOptions(sel, point) {
-    const p = point || origin();
-    const rows = allSpots().map((s) => ({ s, km: E.distanceKm(p, s) })).sort((a, b) => a.km - b.km);
-    return rows.map(({ s, km }) => `<option value="${esc(s.id)}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)} (${round(km, 1)} km)</option>`).join('');
-  }
   function speciesOptions(sel) {
     const groups = ['Predator', 'Whitefish', 'Protected'];
     return groups.map((g) => `<optgroup label="${g}">${D.SPECIES.filter((s) => s.group === g).map((s) => `<option value="${s.id}" ${s.id === sel ? 'selected' : ''}>${esc(s.name)} (${esc(s.nl)})</option>`).join('')}</optgroup>`).join('') + `<option value="other" ${sel === 'other' ? 'selected' : ''}>Other fish</option>`;
@@ -467,14 +396,13 @@
   function openCatchForm(opts) {
     opts = opts || {};
     const r = opts.record || {}, editing = !!opts.record;
-    const def = opts.species || r.speciesId || state.spotSpecies || (state.weather && scored(Date.now()).best ? scored(Date.now()).best.sp.id : 'pike');
-    formDraft = { photoBlob: null, removePhoto: false, lat: r.lat, lon: r.lon };
+    const def = opts.species || r.speciesId || state.focus || (state.weather && scored(Date.now()).best ? scored(Date.now()).best.sp.id : 'pike');
+    formDraft = { photoBlob: null, removePhoto: false };
     openSheet(editing ? 'Edit catch' : 'Log a catch', `<form id="catch-form" novalidate style="display:grid;gap:14px">
       <label class="photo" id="photo-label">${r.hasPhoto ? `<img id="photo-preview" data-photo="${esc(r.id)}" alt="Catch photo">` : '<span id="photo-empty">Tap to take or choose a photo</span><img id="photo-preview" alt="Catch photo" hidden>'}<input type="file" id="photo-input" accept="image/*"></label>
       <div class="field"><label for="f-species">Fish</label><select id="f-species">${speciesOptions(def)}</select></div>
-      <div class="two"><div class="field"><label for="f-length">Length (cm)</label><input id="f-length" type="number" inputmode="decimal" min="1" max="250" step="0.5" value="${r.lengthCm || ''}"></div><div class="field"><label for="f-weight">Weight (kg)</label><input id="f-weight" type="number" inputmode="decimal" min="0" max="80" step="0.01" value="${r.weightG ? r.weightG / 1000 : ''}"></div></div>
+      <div class="two"><div class="field"><label for="f-length">Length (cm)</label><input id="f-length" type="number" inputmode="decimal" min="2" max="300" step="0.5" value="${r.lengthCm || ''}"></div><div class="field"><label for="f-weight">Weight (kg)</label><input id="f-weight" type="number" inputmode="decimal" min="0" max="150" step="0.01" value="${r.weightG ? r.weightG / 1000 : ''}"></div></div>
       <div class="advice" id="f-advice" aria-live="polite"></div>
-      <div class="field"><label for="f-spot">Spot</label><select id="f-spot">${spotOptions(opts.spot || r.spotId)}</select><button type="button" class="btn" data-act="gps-spot">Use my location</button><span class="small muted" id="gps-note"></span></div>
       <div class="field"><label for="f-time">When</label><input id="f-time" type="datetime-local" value="${toLocalInput(r.ts || Date.now())}"></div>
       <div class="field"><label for="f-bait">Bait or lure</label><input id="f-bait" type="text" autocomplete="off" value="${esc(r.bait || '')}"></div>
       <div class="field"><label for="f-note">Note</label><textarea id="f-note">${esc(r.note || '')}</textarea></div>
@@ -509,10 +437,10 @@
     c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
     return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('photo'))), 'image/jpeg', .84));
   }
-  function buildContext(ts, spot, speciesId) {
+  function buildContext(ts, speciesId) {
     const w = state.weather;
     if (!w || ts < w.hourly.time[0] || ts > w.hourly.time[w.hourly.time.length - 1]) return { cond: null, forecast: null };
-    const c = E.conditionsAt(w, ts, { type: spot ? spot.type : 'shipcanal', measure: state.measure });
+    const c = E.conditionsAt(w, ts, { measure: state.measure });
     const rows = D.SPECIES.map((sp) => E.scoreSpecies(sp, c, state.settings));
     const top = rows.filter((r) => r.recommended).sort((a, b) => b.score - a.score)[0];
     const mine = rows.find((r) => r.sp.id === speciesId);
@@ -522,17 +450,14 @@
     const ts = new Date($('#f-time').value).getTime();
     const len = parseFloat($('#f-length').value), kg = parseFloat($('#f-weight').value), err = $('#f-err');
     const fail = (m) => { err.textContent = m; err.hidden = false; err.scrollIntoView({ block: 'center' }); };
-    if (!ts) return fail('Enter a date and time.');
-    if (ts > Date.now() + 10 * 60 * 1000) return fail('That time is in the future. Check the date.');
-    if (len && (len < 1 || len > 250)) return fail('Length should be between 1 and 250 cm.');
-    if (kg && (kg <= 0 || kg > 80)) return fail('Weight should be between 0 and 80 kg.');
+    const problem = E.checkEntry($('#f-species').value, isNaN(len) ? null : len, isNaN(kg) ? null : kg, ts);
+    if (problem) return fail(problem);
     const before = E.computeProgress(state.records);
-    const spotId = $('#f-spot').value, spot = spotById(spotId), speciesId = $('#f-species').value;
-    const ctx = old.id && old.ts === ts && old.spotId === spotId && old.speciesId === speciesId ? { cond: old.cond || null, forecast: old.forecast || null } : buildContext(ts, spot, speciesId);
+    const speciesId = $('#f-species').value;
+    const ctx = old.id && old.ts === ts && old.speciesId === speciesId ? { cond: old.cond || null, forecast: old.forecast || null } : buildContext(ts, speciesId);
     const rec = { id: old.id || uid(), type: 'catch', ts, speciesId, lengthCm: len || null, weightG: kg ? Math.round(kg * 1000) : null,
-      spotId, spotName: spot ? spot.name : null, bait: $('#f-bait').value.trim() || null,
-      note: $('#f-note').value.trim() || null, hasPhoto: !!(old.hasPhoto || formDraft.photoBlob), cond: ctx.cond, forecast: ctx.forecast,
-      lat: formDraft.lat !== undefined ? formDraft.lat : null, lon: formDraft.lon !== undefined ? formDraft.lon : null };
+      bait: $('#f-bait').value.trim() || null,
+      note: $('#f-note').value.trim() || null, hasPhoto: !!(old.hasPhoto || formDraft.photoBlob), cond: ctx.cond, forecast: ctx.forecast };
     try {
       if (formDraft.photoBlob) { await store.put('photos', formDraft.photoBlob, rec.id); const u = state.photoUrls.get(rec.id); if (u) URL.revokeObjectURL(u); state.photoUrls.delete(rec.id); }
       await store.put('records', rec);
@@ -557,16 +482,17 @@
     const best = state.weather ? scored(Date.now()).best : null;
     openSheet('No catch today', `<p>Blank trips teach Stek which conditions do not work for you, so they count for your score and earn XP.</p>
       <form id="blank-form" style="display:grid;gap:14px">
-      <div class="field"><label for="b-spot">Spot</label><select id="b-spot">${spotOptions()}</select></div>
       <div class="field"><label for="b-target">Fishing for</label><select id="b-target">${speciesOptions(best ? best.sp.id : 'pike')}</select></div>
       <div class="two"><div class="field"><label for="b-dur">Minutes fished</label><input id="b-dur" type="number" inputmode="numeric" min="5" max="1440" step="5" value="60"></div><div class="field"><label for="b-time">When</label><input id="b-time" type="datetime-local" value="${toLocalInput(Date.now())}"></div></div>
       <div class="field"><label for="b-note">Note</label><textarea id="b-note"></textarea></div>
       <button class="btn primary" type="submit">Save trip</button></form>`, () => {
       $('#blank-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const ts = new Date($('#b-time').value).getTime() || Date.now(), spotId = $('#b-spot').value, spot = spotById(spotId), target = $('#b-target').value;
-        const ctx = buildContext(ts, spot, target), before = E.computeProgress(state.records);
-        const rec = { id: uid(), type: 'blank', ts, targetId: target, spotId, spotName: spot ? spot.name : null, durationMin: parseInt($('#b-dur').value, 10) || null, note: $('#b-note').value.trim() || null, cond: ctx.cond, forecast: ctx.forecast };
+        const ts = new Date($('#b-time').value).getTime() || Date.now(), target = $('#b-target').value, dur = parseInt($('#b-dur').value, 10);
+        const problem = E.checkEntry(target, null, null, ts) || (dur && (dur < 1 || dur > 1440) ? 'Minutes fished should be between 1 and 1440.' : null);
+        if (problem) { toast(problem); return; }
+        const ctx = buildContext(ts, target), before = E.computeProgress(state.records);
+        const rec = { id: uid(), type: 'blank', ts, targetId: target, durationMin: dur || null, note: $('#b-note').value.trim() || null, cond: ctx.cond, forecast: ctx.forecast };
         await store.put('records', rec).catch(() => toast('This phone could not save the trip'));
         state.records = state.records.concat(rec);
         closeSheet(); state.tab = 'log'; render(); announce(before, rec);
@@ -575,11 +501,11 @@
   }
   function openRecord(id) {
     const r = state.records.find((x) => x.id === id); if (!r) return;
-    const sp = E.speciesById(r.speciesId), spot = spotById(r.spotId), c = r.cond;
+    const sp = E.speciesById(r.speciesId), c = r.cond;
     const condRows = c ? `<dt>Water (est.)</dt><dd>${round(c.water, 1)} °C</dd><dt>Air</dt><dd>${round(c.air, 1)} °C</dd><dt>Pressure</dt><dd>${round(c.press, 0)} hPa, ${esc((E.PRESS_TEXT[c.pressClass] || '').toLowerCase())}</dd><dt>Wind</dt><dd>${round(c.wind, 0)} km/h ${esc(E.compass(c.dir))}</dd><dt>Weather</dt><dd>${esc(E.weatherText(c.code))}</dd><dt>Moon</dt><dd>${esc(c.moon || '')}</dd>` : '';
     const title = r.type === 'blank' ? 'No catch' : sp ? sp.name : 'Other fish';
     openSheet(title, `${r.hasPhoto ? `<img class="catchphoto" data-photo="${esc(r.id)}" alt="Photo of your ${esc(title.toLowerCase())}">` : ''}
-      <dl class="kv num"><dt>When</dt><dd>${esc(dayLabel(r.ts))}, ${clock(r.ts)}</dd><dt>Spot</dt><dd>${esc(spot ? spot.name : r.spotName || 'Unknown')}</dd>
+      <dl class="kv num"><dt>When</dt><dd>${esc(dayLabel(r.ts))}, ${clock(r.ts)}</dd>
       ${r.lengthCm ? `<dt>Length</dt><dd>${r.lengthCm} cm</dd>` : ''}${r.weightG ? `<dt>Weight</dt><dd>${weight(r.weightG)}</dd>` : ''}${r.bait ? `<dt>Bait or lure</dt><dd>${esc(r.bait)}</dd>` : ''}
       ${r.durationMin ? `<dt>Fished for</dt><dd>${r.durationMin} min</dd>` : ''}${r.forecast && r.forecast.speciesScore !== null ? `<dt>Score then</dt><dd>${r.forecast.speciesScore}</dd>` : ''}${condRows}</dl>
       ${c ? '' : '<p class="small muted">No weather saved, because this entry is outside the saved forecast period.</p>'}
@@ -607,41 +533,29 @@
       });
     });
   }
-  function openAddSpot() {
-    formDraft = {};
-    openSheet('Add your own spot', `<p>It stays on this phone unless you export a backup. Check that fishing is allowed there.</p>
-      <form id="s-form" style="display:grid;gap:14px"><div class="field"><label for="s-name">Name</label><input id="s-name" required maxlength="60" autocomplete="off"></div>
-      <div class="field"><label for="s-type">Type of water</label><select id="s-type">${Object.entries(D.WATER_TYPES).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('')}</select></div>
-      <button type="button" class="btn" data-act="gps-new">Use my location</button><span class="small muted" id="gps-note"></span>
-      <div class="two"><div class="field"><label for="s-lat">Latitude</label><input id="s-lat" type="number" inputmode="decimal" step="0.00001" required></div><div class="field"><label for="s-lon">Longitude</label><input id="s-lon" type="number" inputmode="decimal" step="0.00001" required></div></div>
-      <p class="err" id="s-err" hidden></p><button class="btn primary" type="submit">Save spot</button></form>`, () => {
-      $('#s-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const lat = parseFloat($('#s-lat').value), lon = parseFloat($('#s-lon').value), name = $('#s-name').value.trim(), err = $('#s-err');
-        if (!name) { err.textContent = 'Give the spot a name.'; err.hidden = false; return; }
-        if (!(lat >= 50 && lat <= 54.5 && lon >= 3 && lon <= 8)) { err.textContent = 'Those coordinates are not in the Netherlands.'; err.hidden = false; return; }
-        state.userSpots.push({ id: 'own-' + uid(), name, type: $('#s-type').value, lat, lon, own: true, status: 'own' });
-        saveKV('userSpots', state.userSpots); closeSheet(); render(); toast('Spot saved');
-      });
-    });
-  }
   function openSettings() {
     const seg = (name, val, opts) => `<div class="seg">${opts.map(([v, l]) => `<button type="button" data-act="${name}" data-v="${v}" aria-pressed="${val === v}">${l}</button>`).join('')}</div>`;
     const canInstall = !!deferredInstall;
     openSheet('Settings', `<section class="block"><h3>Your permit</h3>${seg('permit', state.settings.permit, [['full', 'VISpas + NachtVIS'], ['vispas', 'VISpas'], ['kleine', 'Kleine VISpas']])}
-      <p class="small muted">Kleine VISpas: one rod, single hook, listed baits only, daytime only, all fish go back, and only waters on the Kleine Lijst.</p></section>
-      <section class="block"><h3>Distances from</h3><p class="small">${state.settings.origin ? 'Your saved location.' : 'Groningen centre.'}</p><div class="btnrow"><button class="btn" data-act="set-origin">Use my location</button>${state.settings.origin ? '<button class="btn" data-act="clear-origin">Use city centre</button>' : ''}</div><span class="small muted" id="gps-note"></span></section>
+      <p class="small muted">Kleine VISpas: one rod, single hook, listed baits only, daytime only, all fish go back, and only waters on its own list.</p></section>
       <section class="block"><h3>Appearance</h3>${seg('theme', state.settings.theme, [['auto', 'Phone setting'], ['light', 'Light'], ['dark', 'Dark']])}</section>
       <section class="block"><h3>Backup</h3><p>Your catches and photos live only on this phone. Save a backup file now and then, and keep a copy somewhere safe.</p><div class="btnrow"><button class="btn" data-act="export">Save backup file</button><label class="btn" for="import-file">Restore backup</label></div><input type="file" id="import-file" accept="application/json,.json" hidden>
       <p class="small muted num">${state.backupAt ? 'Last backup: ' + esc(dayLabel(state.backupAt)) : 'No backup yet.'} ${state.records.length} entries.</p></section>
       ${canInstall ? '<button class="btn primary" data-act="install">Add to home screen</button>' : ''}
+      <section class="block"><h3>Privacy</h3><ul style="margin:0;padding-left:20px;display:grid;gap:6px" class="small">
+        <li>Your catches, photos, notes and settings stay on this device. There is no account, and nothing you log is sent to the maker of Stek or anyone else.</li>
+        <li>Stek does not use your location and has no ads or tracking. Location data in photos is removed when you add them.</li>
+        <li>To show the weather, your device connects to the weather services below. They can see your IP address and the fixed Groningen location. GitHub, which hosts the app, can also see your IP address.</li>
+        <li>A backup file contains your whole log and photos. You decide where to keep it. Clearing your browser data or losing your phone can delete your log, so save backups.</li></ul></section>
+      <section class="block"><h3>Disclaimer</h3><ul style="margin:0;padding-left:20px;display:grid;gap:6px" class="small">
+        <li>Bite scores, water temperature and fishing tips are estimates from general fishing knowledge and your own log. They do not guarantee a catch.</li>
+        <li>Stek does not tell you where fishing is allowed. Rules are a general guide and can differ per water or change. Always check the official VISplanner app and your permit.</li>
+        <li>Weather data can be wrong or late. You decide whether it is safe to fish. Stay away from the water in thunderstorms and never walk on ice.</li>
+        <li>Stek is provided as it is, without any warranty.</li></ul></section>
       <section class="block"><h3>About the data</h3><ul style="margin:0;padding-left:20px;display:grid;gap:6px" class="small">
         <li>Live weather comes from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). If it is down, Stek switches to <a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a>, using Deutscher Wetterdienst data, with its forecast for Groningen. Its past days come from stations 40 to 50 km away, so the water estimate is rougher.</li>
-        <li>Water temperature is an estimate, not a measurement.</li>
         <li>Current and water level are not measured in the app. Open <a href="${LINKS.waterinfo}" target="_blank" rel="noopener">Waterinfo</a> for official readings.</li>
-        <li>Bite scores are informed estimates from general fishing knowledge, plus your own log.</li>
-        <li>Rules come from the ${esc(D.LEGAL.source)}. Rules can differ per water, so the official VISplanner app and your permit always win.</li>
-        <li>Map data from OpenStreetMap.</li></ul></section>`, (el) => {
+        <li>Rules are based on the ${esc(D.LEGAL.source)}.</li></ul></section>`, (el) => {
       const f = $('#import-file', el); if (f) f.addEventListener('change', (e) => { const x = e.target.files[0]; if (x) importBackup(x); });
     });
   }
@@ -651,7 +565,7 @@
     toast('Preparing your backup');
     const photos = {};
     for (const r of state.records) if (r.hasPhoto) { const b = await store.get('photos', r.id).catch(() => null); if (b) photos[r.id] = await blobToData(b); }
-    const data = { app: 'stek', version: 1, exportedAt: Date.now(), records: state.records, photos, userSpots: state.userSpots, settings: state.settings, measure: state.measure };
+    const data = { app: 'stek', version: 1, exportedAt: Date.now(), records: state.records, photos, settings: state.settings, measure: state.measure };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = `stek-backup-${E.dateKey(Date.now())}.json`; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
@@ -670,18 +584,10 @@
         const ph = data.photos && data.photos[r.id];
         if (typeof ph === 'string' && ph.startsWith('data:image/')) { const b = await (await fetch(ph)).blob(); await store.put('photos', b, r.id); state.photoUrls.delete(r.id); }
       }
-      if (Array.isArray(data.userSpots)) { for (const s of data.userSpots) if (s && s.id && !state.userSpots.some((x) => x.id === s.id)) state.userSpots.push(s); saveKV('userSpots', state.userSpots); }
       closeSheet(); render(); toast('Backup restored', `${added} new ${added === 1 ? 'entry' : 'entries'} added.`);
     } catch (e) { toast('That file could not be restored', 'Choose a Stek backup file.'); }
   }
   function requestPersist() { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); }
-  function locate() {
-    return new Promise((res, rej) => {
-      if (!navigator.geolocation) return rej(new Error('none'));
-      navigator.geolocation.getCurrentPosition((p) => res({ lat: p.coords.latitude, lon: p.coords.longitude }), rej, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
-    });
-  }
-
   /* ---------- Toast ---------- */
   let toastTimer = null;
   function toast(title, sub) {
@@ -695,8 +601,7 @@
   function render() {
     const view = $('#view');
     const stripScroll = $('#strip') ? $('#strip').scrollLeft : null;
-    if (map) { map.remove(); map = null; }
-    view.innerHTML = ({ today: renderToday, spots: renderSpots, log: renderLog, trophies: renderTrophies }[state.tab] || renderToday)();
+    view.innerHTML = ({ today: renderToday, log: renderLog, trophies: renderTrophies }[state.tab] || renderToday)();
     document.querySelectorAll('.tabs button').forEach((b) => { if (b.dataset.tab === state.tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     if (stripScroll !== null && $('#strip')) $('#strip').scrollLeft = stripScroll;
     paintStatus();
@@ -729,12 +634,8 @@
         break;
       }
       case 'species': closeSheet(); openSpecies(id); break;
-      case 'spot': closeSheet(); openSpot(id); break;
-      case 'tab': closeSheet(); if (b.dataset.species) state.spotSpecies = b.dataset.species; setTab(id); break;
-      case 'spot-species': state.spotSpecies = id; render(); break;
-      case 'add-catch': closeSheet(); openCatchForm({ species: b.dataset.species, spot: b.dataset.spot }); break;
+      case 'add-catch': closeSheet(); openCatchForm({ species: b.dataset.species }); break;
       case 'add-blank': openBlankForm(); break;
-      case 'add-spot': openAddSpot(); break;
       case 'record': openRecord(id); break;
       case 'edit-record': { const r = state.records.find((x) => x.id === id); closeSheet(); openCatchForm({ record: r }); break; }
       case 'ask-delete': closeSheet(); askDelete(id); break;
@@ -743,28 +644,9 @@
       case 'clear-measure': state.measure = null; store.del('kv', 'measure').catch(() => {}); closeSheet(); render(); toast('Reading removed'); break;
       case 'permit': state.settings.permit = b.dataset.v; saveKV('settings', state.settings); closeSheet(); render(); openSettings(); break;
       case 'theme': state.settings.theme = b.dataset.v; applyTheme(); saveKV('settings', state.settings); closeSheet(); render(); openSettings(); break;
-      case 'del-spot': state.userSpots = state.userSpots.filter((s) => s.id !== id); saveKV('userSpots', state.userSpots); closeSheet(); render(); toast('Spot deleted'); break;
       case 'export': exportBackup(); break;
       case 'install': if (deferredInstall) { deferredInstall.prompt(); deferredInstall = null; closeSheet(); render(); } break;
       case 'dismiss-install': state.installDismissed = true; saveKV('installDismissed', true); render(); break;
-      case 'gps-spot': case 'gps-new': case 'set-origin': {
-        const note = $('#gps-note'); if (note) note.textContent = 'Finding your location';
-        try {
-          const p = await locate();
-          if (act === 'gps-spot') {
-            formDraft.lat = p.lat; formDraft.lon = p.lon;
-            const near = E.nearestSpot(p, allSpots());
-            $('#f-spot').innerHTML = spotOptions(near ? near.spot.id : undefined, p);
-            if (note) note.textContent = near ? `Nearest spot selected, ${round(near.km, 1)} km away. Location saved with this catch.` : 'Location saved with this catch.';
-          } else if (act === 'gps-new') {
-            $('#s-lat').value = p.lat.toFixed(5); $('#s-lon').value = p.lon.toFixed(5); if (note) note.textContent = 'Location filled in.';
-          } else {
-            state.settings.origin = { lat: p.lat, lon: p.lon, name: 'My location' }; saveKV('settings', state.settings); closeSheet(); render(); openSettings(); toast('Distances now start from your location');
-          }
-        } catch (err) { if (note) note.textContent = 'Could not get your location. Allow location for Stek in your browser settings.'; else toast('Could not get your location'); }
-        break;
-      }
-      case 'clear-origin': state.settings.origin = null; saveKV('settings', state.settings); closeSheet(); render(); openSettings(); break;
     }
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet(); });
@@ -780,7 +662,7 @@
   setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     if (state.weather && Date.now() - state.weather.fetchedAt > 15 * 60 * 1000) { refresh(); return; }
-    /* Move the clock without disturbing an open map or form. */
+    /* Move the clock without disturbing an open form. */
     const stamp = Math.floor(Date.now() / (5 * 60 * 1000));
     if (state.tab === 'today' && $('#sheet').hidden) { if (stamp !== state.lastHour) render(); else { const eb = $('.viewbar .when'); if (eb && state.t === null) eb.textContent = 'Today ' + clock(Date.now()); } }
     paintStatus();
@@ -789,7 +671,7 @@
   /* ---------- Start ---------- */
   (async function start() {
     const hash = location.hash.replace('#', '');
-    if (['today', 'spots', 'log', 'trophies'].includes(hash)) state.tab = hash;
+    if (['today', 'log', 'trophies'].includes(hash)) state.tab = hash;
     await loadAll();
     render();
     if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('sw.js').catch(() => {});

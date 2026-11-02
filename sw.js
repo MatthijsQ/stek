@@ -1,7 +1,7 @@
 /* Stek service worker: use the newest app files when online, the saved copy when offline. */
-const CACHE = 'stek-v4';
+const CACHE = 'stek-v5';
 const FILES = ['./', 'index.html', 'styles.css', 'data.js', 'engine.js', 'fish.js', 'app.js', 'manifest.webmanifest',
-  'vendor/leaflet.js', 'vendor/leaflet.css', 'icons/icon-192.png', 'icons/icon-512.png',
+  'icons/icon-192.png', 'icons/icon-512.png',
   'fonts/atkinson-Regular.woff', 'fonts/atkinson-Bold.woff', 'fonts/barlow-condensed-Medium.woff',
   'fonts/barlow-condensed-SemiBold.woff', 'fonts/barlow-condensed-Bold.woff'];
 self.addEventListener('install', (e) => {

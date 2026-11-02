@@ -25,7 +25,7 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await new Promise((r) => server.listen(0, r));
   const url = `http://localhost:${server.address().port}/`;
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, colorScheme: 'light', acceptDownloads: true, geolocation: { latitude: 53.2165, longitude: 6.5783 }, permissions: ['geolocation'] });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, colorScheme: 'light', acceptDownloads: true });
   let blockWeather = false, weatherHits = 0;
   let openMeteoDown = false;
   await ctx.route(/open-meteo\.com/, (route) => {
@@ -42,7 +42,6 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
     const weather = f.time.map((t, i) => ({ timestamp: new Date(t).toISOString(), temperature: f.temperature_2m[i], dew_point: 7.5, relative_humidity: null, precipitation: 0, precipitation_probability: 10, cloud_cover: 80, pressure_msl: f.pressure_msl[i], wind_speed: 15, wind_gust_speed: 26, wind_direction: 250, visibility: 20000, solar: 0.05, condition: 'dry' }));
     route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ weather }) });
   });
-  await ctx.route(/openstreetmap\.org/, (r) => r.abort());
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -81,6 +80,8 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   assert(/pick-off/.test(await toneOf('Wels catfish')), 'protected fish is grey');
   assert(await page.evaluate(() => { const col = (n) => getComputedStyle([...document.querySelectorAll('.pickgrid .chip')].find((c) => c.textContent === n)).color; return col('Wels catfish') !== col('Zander'); }), 'names have different colours');
   assert(new Set(await page.locator('.pickgrid .chip').evaluateAll((a) => a.map((c) => c.className.match(/pick-\w+/)[0]))).size >= 2, 'picker colours vary with the score');
+  const carpHow = await page.locator('.howgrid').first().textContent();
+  assert(/Canals/.test(carpHow) && /Lakes/.test(carpHow) && /Small water/.test(carpHow), 'how-to gives tips per type of water');
   await shot('10-focus-carp');
   await page.locator('.pickgrid .chip:text-is("Wels catfish")').click();
   await page.waitForTimeout(100);
@@ -111,33 +112,8 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await page.locator('#sheet').evaluate((n) => { n.style.position = ''; n.style.overflow = ''; });
   await page.click('#sheet [data-act="close"]');
 
-  // Spots
-  await page.click('[data-tab="spots"]');
-  await page.waitForSelector('#map .leaflet-marker-icon');
-  assert(await page.locator('#map .leaflet-marker-icon').count() === 26, 'map shows all spots');
-  await noOverflow('spots');
-  await shot('03-spots');
-  const firstBefore = await page.locator('.rows .row .title').first().textContent();
-  await page.locator('.chip:text-is("Tench")').click();
-  await page.waitForTimeout(100);
-  const firstAfter = await page.locator('.rows .row .title').first().textContent();
-  assert(firstBefore !== firstAfter || true, `spot ranking for tench: ${firstAfter}`);
-  await page.locator('.rows .row').first().click();
-  await page.waitForSelector('#sheet [data-act="close"]');
-  await page.locator('#sheet a:has-text("Bike route")').first().waitFor();
-  const spotSheet = await page.textContent('#sheet');
-  assert(!spotSheet.includes('Log a catch here') && !spotSheet.includes('I checked') && await page.locator('#sheet a:has-text("VISplanner")').count() === 0, 'spot page has no extra buttons');
-  assert((await page.locator('#sheet a:has-text("Bike route")').getAttribute('href')).includes('travelmode=bicycling'), 'bike route link');
-  await page.click('#sheet [data-act="close"]');
-
-  // Add own spot
-  await page.click('[data-act="add-spot"]');
-  await page.fill('#s-name', 'Secret bend');
-  await page.click('[data-act="gps-new"]');
-  await page.waitForFunction(() => document.querySelector('#s-lat').value !== '');
-  await page.click('#s-form button[type=submit]');
-  await page.waitForTimeout(200);
-  assert((await page.textContent('.rows')).includes('Secret bend'), 'own spot saved');
+  // No spots or locations anywhere
+  assert(await page.locator('[data-tab="spots"]').count() === 0 && await page.locator('.tabs button').count() === 3, 'Spots tab is gone');
 
   // Log
   await page.click('[data-tab="log"]');
@@ -156,9 +132,7 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   const png = fs.readFileSync(path.join(root, 'icons/icon-512.png'));
   await page.setInputFiles('#photo-input', { name: 'pike.png', mimeType: 'image/png', buffer: png });
   await page.waitForSelector('#photo-preview:not([hidden])');
-  await page.click('[data-act="gps-spot"]');
-  await page.waitForFunction(() => document.querySelector('#gps-note').textContent.includes('Nearest'));
-  assert((await page.locator('#f-spot').evaluate((s) => s.selectedOptions[0].textContent)).includes('Secret bend'), 'location selects the nearest spot');
+  assert(await page.locator('#f-spot').count() === 0 && !(await page.textContent('#catch-form')).includes('Use my location'), 'no spot or location when logging');
   await page.fill('#f-bait', 'Soft shad');
   assert(await page.locator('#f-bait').getAttribute('list') === null, 'bait is free text');
   assert(!(await page.textContent('#catch-form')).includes('What happened'), 'kept or released is gone');
@@ -166,6 +140,16 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await page.locator('#sheet').evaluate((n) => { n.style.position = 'static'; n.style.overflow = 'visible'; });
   await shot('05-catch-form');
   await page.locator('#sheet').evaluate((n) => { n.style.position = ''; n.style.overflow = ''; });
+  // Impossible entries are stopped with a reason
+  await page.fill('#f-length', '400');
+  await page.click('#catch-form button[type=submit]');
+  await page.waitForFunction(() => !document.querySelector('#f-err').hidden);
+  assert((await page.textContent('#f-err')).includes('not realistic'), 'impossible length is refused: ' + (await page.textContent('#f-err')));
+  await page.fill('#f-length', '30');
+  await page.click('#catch-form button[type=submit]');
+  await page.waitForTimeout(100);
+  assert((await page.textContent('#f-err')).includes('do not fit'), 'length and weight must fit together');
+  await page.fill('#f-length', '82');
   await page.click('#catch-form button[type=submit]');
   await page.waitForSelector('.entry');
   assert((await page.textContent('#toast')).includes('XP'), 'toast: ' + (await page.textContent('#toast')));
@@ -177,12 +161,14 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   // Weather saved with the catch
   await page.click('.entry');
   await page.waitForSelector('#sheet .kv');
+  assert(!(await page.textContent('#sheet')).includes('Spot'), 'no spot on the entry');
   const det = await page.textContent('#sheet .kv');
   assert(/Pressure/.test(det) && /Water/.test(det), 'weather saved with the catch');
   await page.click('#sheet [data-act="close"]');
 
   // Blank trip
   await page.click('[data-act="add-blank"]');
+  assert(await page.locator('#b-spot').count() === 0, 'no spot on a blank trip');
   await page.click('#blank-form button[type=submit]');
   await page.waitForTimeout(200);
   assert(await page.locator('.entry').count() === 2, 'trip with no catch saved');
@@ -203,6 +189,8 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
 
   // Backup and restore
   await page.click('[data-act="settings"]');
+  const settingsText = await page.textContent('#sheet');
+  assert(settingsText.includes('Privacy') && settingsText.includes('Disclaimer') && settingsText.includes('does not use your location') && !settingsText.includes('Distances from'), 'privacy note and disclaimer are in settings');
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#sheet [data-act="export"]')]);
   const bpath = path.join(out, 'backup.json'); await dl.saveAs(bpath);
   const backup = JSON.parse(fs.readFileSync(bpath));

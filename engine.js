@@ -389,6 +389,26 @@
     return { pos, neg };
   }
 
+  function checkEntry(speciesId, lengthCm, kg, ts, now) {
+    /* Catches typing errors and impossible fish. The answer says exactly what to fix. */
+    const lim = D.LIMITS[speciesId] || D.LIMITS.other, sp = speciesById(speciesId), name = sp ? sp.name.toLowerCase() : 'fish';
+    if (!ts || isNaN(ts)) return 'Enter a date and time.';
+    if (ts > (now || Date.now()) + 10 * 60 * 1000) return 'That time is in the future. Check the date.';
+    if (ts < new Date(2000, 0, 1).getTime()) return 'That date is too long ago. Check the year.';
+    if (lengthCm !== null && !isNaN(lengthCm)) {
+      if (lengthCm < 2) return 'That length looks too small. Enter it in centimetres.';
+      if (lengthCm > lim[0]) return `A ${name} of ${lengthCm} cm is not realistic. The limit here is ${lim[0]} cm, so check the length.`;
+    }
+    if (kg !== null && !isNaN(kg)) {
+      if (kg <= 0) return 'Weight must be more than 0 kg.';
+      if (kg > lim[1]) return `A ${name} of ${kg} kg is not realistic. The limit here is ${lim[1]} kg. Enter the weight in kilograms.`;
+    }
+    if (lengthCm && kg && lim[2]) {
+      const expected = lim[2] * lengthCm ** 3 / 1000;
+      if (kg > expected * 3.2 || kg < expected * .3) return `That length and weight do not fit together: a ${lengthCm} cm ${name} usually weighs about ${expected >= 1 ? expected.toFixed(1) + ' kg' : Math.round(expected * 1000) + ' g'}. Check both numbers.`;
+    }
+    return null;
+  }
   function howBand(water) {
     return water === null ? 'mid' : water < 8 ? 'cold' : water <= 18 ? 'mid' : 'warm';
   }
@@ -401,58 +421,12 @@
     return h;
   }
 
-  /* ---------- Water choice ---------- */
-  const toRad = (x) => x * Math.PI / 180;
-  function distanceKm(a, b) {
-    const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
-    const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
-    return 6371 * 2 * Math.asin(Math.sqrt(s));
-  }
-  const bikeMinutes = (km) => Math.round(km * 1.3 / 16 * 60);
-  function nearestSpot(point, spots) {
-    let best = null, bd = Infinity;
-    for (const s of spots) { const d = distanceKm(point, s); if (d < bd) { bd = d; best = s; } }
-    return best ? { spot: best, km: bd } : null;
-  }
-  function windAdvice(c) {
-    if (c.wind < 8) return 'Almost no wind, so there is no favoured bank. Fish structure and shade.';
-    const to = compass(c.dir + 180), from = compass(c.dir);
-    if (c.wind > 35) return `Hard ${from} wind. Pick a sheltered harbour or a bank with the wind at your back.`;
-    return `Wind from the ${from} pushes surface food towards the ${to} side. Try the side it blows into first.`;
-  }
-  function rankSpots(sp, c, spots, ctx) {
-    ctx = ctx || {};
-    const origin = ctx.origin || D.CENTER, permit = (ctx.settings && ctx.settings.permit) || 'full';
-    const rows = [];
-    for (const s of spots) {
-      const km = distanceKm(origin, s), centreKm = distanceKm(D.CENTER, s);
-      if (centreKm > 20.5 && !s.own) continue;
-      if (permit === 'kleine' && s.status !== 'listed' && !s.own) continue;
-      const type = D.WATER_TYPES[s.type] || D.WATER_TYPES.shipcanal;
-      let val = 62 * (sp.habitat[s.type] === undefined ? .5 : sp.habitat[s.type]);
-      const why = [];
-      if (c.water !== null && c.water < 8) { val += 14 * type.cold; if (type.cold >= .8) why.push('Deep or sheltered water holds fish in the cold'); }
-      if (c.water !== null && c.water > 20 && (s.type === 'shallowlake' || s.type === 'polder')) { val -= 8; why.push('Shallow water can run low on oxygen in the heat'); }
-      if (c.wind > 22) {
-        val -= type.exposure * Math.min(25, (c.wind - 22) * 1.1);
-        if (type.exposure <= .4) why.push('Sheltered from the wind'); else if (type.exposure >= .8) why.push('Exposed to the wind');
-      }
-      val -= Math.min(18, km * .9);
-      if (s.status === 'check') val -= 6;
-      let personal = 0;
-      if (ctx.spotLift) { personal = ctx.spotLift(s.id); val += personal; if (personal >= 3) why.push('Has worked well for you'); }
-      if (!why.length && (sp.habitat[s.type] || 0) >= .8) why.push('Good water type for ' + sp.name.toLowerCase());
-      rows.push({ spot: s, km, minutes: bikeMinutes(km), value: val, why, personal });
-    }
-    return rows.sort((a, b) => b.value - a.value);
-  }
-
   /* ---------- Learning from your log ---------- */
   function groupTrips(records) {
     const map = new Map();
     for (const r of records) {
-      const key = dateKey(r.ts) + '|' + (r.spotId || r.spotName || 'unknown');
-      if (!map.has(key)) map.set(key, { key, ts: r.ts, spotId: r.spotId || null, cond: r.cond || null, caught: new Set(), catches: 0, blank: false });
+      const key = dateKey(r.ts);
+      if (!map.has(key)) map.set(key, { key, ts: r.ts, cond: r.cond || null, caught: new Set(), catches: 0, blank: false });
       const t = map.get(key);
       if (!t.cond && r.cond) t.cond = r.cond;
       if (r.type === 'catch') { t.caught.add(r.speciesId); t.catches++; }
@@ -467,7 +441,7 @@
     wind: c.windClass || (typeof c.wind === 'number' ? windClass(c.wind) : null)
   });
   const LEARN_MIN = 5, LEARN_FULL = 25;
-  function personalAdjust(speciesId, cond, trips, spotId) {
+  function personalAdjust(speciesId, cond, trips) {
     const N = trips.length;
     const S0 = trips.filter((t) => t.caught.has(speciesId)).length;
     if (N < LEARN_MIN || S0 < 1) return { points: 0, trips: N, used: 0, parts: [] };
@@ -487,22 +461,10 @@
     consider('pressure trend', (t) => bucket(t).press, want.press);
     consider('time of day', (t) => bucket(t).daypart, want.daypart);
     consider('wind', (t) => bucket(t).wind, want.wind);
-    if (spotId) consider('this spot', (t) => t.spotId, spotId);
     const confidence = Math.min(1, N / LEARN_FULL);
     const points = Math.round(clamp(lift * 14, -15, 15) * confidence);
     return { points, trips: N, used, parts };
   }
-  function spotLifter(speciesId, trips) {
-    return (spotId) => {
-      const N = trips.length, S0 = trips.filter((t) => t.caught.has(speciesId)).length;
-      if (N < LEARN_MIN || S0 < 1) return 0;
-      const same = trips.filter((t) => t.spotId === spotId);
-      if (!same.length) return 0;
-      const p = (S0 + 1) / (N + 2), s = same.filter((t) => t.caught.has(speciesId)).length;
-      return clamp(Math.log(((s + 4 * p) / (same.length + 4)) / p) * 12, -10, 12);
-    };
-  }
-
   /* ---------- Whole-forecast helpers ---------- */
   function bestWindow(weather, spId, fromT, hours, opts) {
     const sp = speciesById(spId), H = weather.hourly, rows = [];
@@ -556,13 +518,13 @@
       if (r.weightG > pb.weightG) { pb.weightG = r.weightG; pb.weightId = r.id; }
     }
     const trips = groupTrips(records);
-    const spots = new Set(records.map((r) => r.spotId).filter(Boolean));
+    const seasons = new Set(catches.map((r) => Math.floor(((new Date(r.ts).getMonth() + 1) % 12) / 3)));
     const dayMap = {};
     catches.forEach((r) => { const k = dateKey(r.ts); (dayMap[k] = dayMap[k] || new Set()).add(r.speciesId); });
     const maxDay = Object.values(dayMap).reduce((m, s) => Math.max(m, s.size), 0);
     const slam = Object.values(dayMap).some((s) => s.has('pike') && s.has('zander') && s.has('perch'));
     return {
-      catches, blanks, bySpecies, pbs, trips, spots,
+      catches, blanks, bySpecies, pbs, trips, seasons,
       speciesCount: Object.keys(bySpecies).filter((id) => id !== 'other').length,
       photos: catches.filter((r) => r.hasPhoto).length,
       maxDay, slam,
@@ -597,8 +559,8 @@
     { id: 'rain', name: 'Soaked', text: 'Catch a fish in the rain.', xp: 50, test: (s) => anyCatch(s, (r) => r.cond && r.cond.precip >= .3) },
     { id: 'against', name: 'Against the Odds', text: 'Catch a fish while its score is under 30.', xp: 150, test: (s) => anyCatch(s, (r) => r.forecast && r.forecast.speciesScore < 30) },
     { id: 'called', name: 'Called It', text: 'Catch the top pick 5 times.', xp: 200, test: (s) => s.catches.filter((r) => r.forecast && r.forecast.bestId === r.speciesId).length >= 5 },
-    { id: 'spots5', name: 'Explorer', text: 'Fish 5 different spots.', xp: 100, test: (s) => s.spots.size >= 5 },
-    { id: 'spots12', name: 'The All Knowing', text: 'Fish 12 different spots.', xp: 300, test: (s) => s.spots.size >= 12 },
+    { id: 'seasons', name: 'Explorer', text: 'Catch a fish in all four seasons.', xp: 200, test: (s) => s.seasons.size >= 4 },
+    { id: 'allfish', name: 'The All Knowing', text: 'Catch all 12 fish that are open to target.', xp: 500, test: (s) => D.SPECIES.filter((x) => x.recommend).every((x) => s.bySpecies[x.id]) },
     { id: 'streak4', name: 'Regular', text: 'Log a trip 4 weeks in a row.', xp: 150, test: (s) => s.longestStreak >= 4 },
     { id: 'streak12', name: 'Hooked', text: 'Log a trip 12 weeks in a row.', xp: 500, test: (s) => s.longestStreak >= 12 },
     { id: 'blank3', name: 'Honest Angler', text: 'Log 3 trips with no catch.', xp: 75, test: (s) => s.blanks.length >= 3 },
@@ -660,8 +622,8 @@
   return {
     HOUR, DAY, clamp, dateKey, speciesById, lastSaturdayOfMay, baitClosed, closedStatus, isNightPeriod, legalCheck,
     beaufort, compass, weatherText, moon, sunTimes, fromBrightSky, parseWeather, waterSeries, waterAt, pressClass, PRESS_TEXT, windClass, tempBand,
-    conditionsAt, factorValues, scoreSpecies, scoreBand, explainFactors, headlineReasons, howTo, howBand,
-    distanceKm, bikeMinutes, nearestSpot, windAdvice, rankSpots, groupTrips, personalAdjust, spotLifter, LEARN_MIN, LEARN_FULL,
+    conditionsAt, factorValues, scoreSpecies, scoreBand, explainFactors, headlineReasons, howTo, howBand, checkEntry,
+    groupTrips, personalAdjust, LEARN_MIN, LEARN_FULL,
     bestWindow, isoWeek, weekStreak, bestStreak, computeStats, ACHIEVEMENTS, recordXP, computeProgress, catchAdvice
   };
 });

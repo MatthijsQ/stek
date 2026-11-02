@@ -144,39 +144,13 @@ test('lure advice is swapped during the closed bait period', () => {
   const t = at(2026, 4, 20, 9), c = E.conditionsAt(makeWeather(t, { mean: 10 }), t);
   assert.match(E.howTo(E.speciesById('perch'), c).rig, /not allowed/);
 });
-test('all spots are within 20 km and have a valid type', () => {
-  for (const s of D.SPOTS) {
-    assert.ok(D.WATER_TYPES[s.type], s.id);
-    const km = E.distanceKm(D.CENTER, s);
-    assert.ok(km <= 20.5, s.id + ' ' + km);
-  }
-  assert.strictEqual(new Set(D.SPOTS.map((s) => s.id)).size, D.SPOTS.length);
-});
-test('Kleine VISpas only shows listed waters', () => {
-  const t = at(2026, 10, 10, 9), c = E.conditionsAt(makeWeather(t), t);
-  const rows = E.rankSpots(E.speciesById('roach'), c, D.SPOTS, { settings: { permit: 'kleine' } });
-  assert.ok(rows.length > 10);
-  assert.ok(rows.every((r) => r.spot.status === 'listed'));
-});
-test('hard wind moves the choice to sheltered water', () => {
-  const t = at(2026, 10, 10, 9), sp = E.speciesById('pike');
-  const calm = E.rankSpots(sp, E.conditionsAt(makeWeather(t, { wind: 12 }), t), D.SPOTS, {});
-  const gale = E.rankSpots(sp, E.conditionsAt(makeWeather(t, { wind: 48 }), t), D.SPOTS, {});
-  const lakeRank = (rows) => rows.findIndex((r) => r.spot.id === 'paterswoldsemeer');
-  assert.ok(lakeRank(gale) > lakeRank(calm));
-  assert.ok(['harbour', 'diep'].includes(gale[0].spot.type), gale[0].spot.id);
-});
-test('wind advice names the bank the wind blows into', () => {
-  assert.match(E.windAdvice({ wind: 15, dir: 270 }), /from the W pushes .* towards the E/);
-});
-
 function trip(day, spotId, speciesId, cond) {
   return { id: spotId + day + speciesId, type: speciesId ? 'catch' : 'blank', ts: at(2026, 9, day, 9), spotId, speciesId, cond };
 }
-test('trips group by day and spot', () => {
+test('trips group by day', () => {
   const g = E.groupTrips([trip(1, 'a', 'pike', {}), trip(1, 'a', 'perch', {}), trip(1, 'b', null, {}), trip(2, 'a', 'pike', {})]);
-  assert.strictEqual(g.length, 3);
-  assert.strictEqual(g.find((t) => t.key.endsWith('|a') && t.caught.size === 2).catches, 2);
+  assert.strictEqual(g.length, 2);
+  assert.strictEqual(g[0].catches, 2);
 });
 test('no personal adjustment until there are enough trips', () => {
   const trips = E.groupTrips([trip(1, 'a', 'pike', { water: 12, pressClass: 'steady', daypart: 'dawn', windClass: 'breeze' })]);
@@ -219,6 +193,35 @@ test('XP, new species, personal bests and achievements', () => {
   assert.strictEqual(p.annotated.e.xp, 25);
   assert.ok(p.xp > 500);
   assert.ok(p.level >= 3);
+});
+test('impossible entries are rejected with a clear reason', () => {
+  const now = at(2026, 11, 2), ok = (...a) => E.checkEntry(...a, now);
+  assert.strictEqual(ok('pike', 82, 5.2, now), null);
+  assert.strictEqual(ok('carp', null, null, now), null);
+  assert.match(ok('roach', 250, null, now), /not realistic/);
+  assert.match(ok('pike', 60, 80, now), /not realistic/);
+  assert.match(ok('pike', 40, 12, now), /do not fit/);
+  assert.match(ok('pike', 90, .2, now), /do not fit/);
+  assert.match(ok('bream', 1, null, now), /too small/);
+  assert.match(ok('pike', 60, null, now + 864e5), /future/);
+  assert.match(ok('pike', 60, null, new Date(1990, 1, 1).getTime()), /too long ago/);
+  assert.strictEqual(ok('catfish', 200, 60, now), null);
+  assert.strictEqual(ok('other', 200, 1, now), null);
+  for (const sp of D.SPECIES) { assert.ok(D.LIMITS[sp.id], sp.id); const [len, , a] = D.LIMITS[sp.id]; const typical = len * .6; assert.strictEqual(ok(sp.id, typical, a * typical ** 3 / 1000, now), null, sp.id); }
+});
+test('badges no longer depend on spots', () => {
+  const mk = (id, m, sp) => ({ id, type: 'catch', ts: new Date(2026, m, 10).getTime(), speciesId: sp });
+  const four = E.computeProgress([mk('a', 0, 'pike'), mk('b', 3, 'pike'), mk('c', 6, 'carp'), mk('d', 9, 'perch')]).earned.map((a) => a.name);
+  assert.ok(four.includes('Explorer'));
+  const all = D.SPECIES.filter((x) => x.recommend).map((x, i) => mk('s' + i, 5, x.id));
+  assert.ok(E.computeProgress(all).earned.map((a) => a.name).includes('The All Knowing'));
+  assert.ok(!E.computeProgress(all.slice(1)).earned.map((a) => a.name).includes('The All Knowing'));
+  assert.ok(!E.computeProgress([mk('a', 0, 'pike')]).earned.map((a) => a.name).includes('Explorer'));
+});
+test('general tips exist for every target fish and name no places', () => {
+  for (const sp of D.SPECIES.filter((x) => x.recommend)) { const t = D.WATER_TIPS[sp.id]; assert.ok(t.canal && t.lake && t.small, sp.id); }
+  assert.ok(!/Reitdiep|Eemskanaal|Groningen|Hoornse|Paterswold|city centre/.test(JSON.stringify([D.SPECIES, D.WATER_TIPS])));
+  assert.strictEqual(D.SPOTS, undefined);
 });
 test('catch form warnings', () => {
   const summer = at(2026, 8, 1);

@@ -1,7 +1,7 @@
 {
   "name": "Stek Groningen",
   "short_name": "Stek",
-  "description": "Fishing conditions, spots and catch log for Groningen.",
+  "description": "Fishing conditions and a personal catch log for Groningen.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
