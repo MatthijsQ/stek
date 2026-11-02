@@ -232,4 +232,28 @@ test('parses the real response shape', () => {
   assert.strictEqual(c.isNow, true);
   assert.strictEqual(c.daypart, 'day');
 });
+test('sunrise and sunset match the weather service for Groningen', () => {
+  const sun = E.sunTimes(at(2026, 11, 2), D.CENTER.lat, D.CENTER.lon);
+  const near = (ms, h, m) => { const d = new Date(ms); return Math.abs(d.getHours() * 60 + d.getMinutes() - (h * 60 + m)); };
+  const tzShift = -new Date(at(2026, 11, 2)).getTimezoneOffset() - 60;
+  assert.ok(near(sun.rise - tzShift * 6e4, 7, 33) <= 3, 'rise ' + new Date(sun.rise));
+  assert.ok(near(sun.set - tzShift * 6e4, 17, 0) <= 3, 'set ' + new Date(sun.set));
+});
+test('backup source converts into the same weather shape', () => {
+  const mk = (h, o) => ({ timestamp: new Date(2026, 10, 2, h).toISOString(), temperature: 12, dew_point: 8, relative_humidity: null, precipitation: 0.1, precipitation_probability: 15, cloud_cover: 84, pressure_msl: 1030.8, wind_speed: 16.7, wind_gust_speed: 29.6, wind_direction: 358, visibility: 70900, solar: 0.136, condition: 'dry', ...o });
+  const fc = { weather: [mk(13), mk(14, { pressure_msl: null }), mk(15, { condition: 'thunderstorm' })] };
+  const hist = { weather: [{ timestamp: new Date(2026, 10, 1, 12).toISOString(), temperature: 10 }] };
+  const b = E.fromBrightSky(fc, hist, D.CENTER.lat, D.CENTER.lon);
+  assert.deepStrictEqual(b.history.daily.time.length, 2);
+  const w = E.parseWeather(b.forecast, b.history, null);
+  assert.strictEqual(w.hourly.press[1], 1030.8);
+  assert.ok(w.hourly.rh[0] > 60 && w.hourly.rh[0] < 90);
+  assert.strictEqual(w.hourly.code[2], 95);
+  assert.strictEqual(w.hourly.code[0], 3);
+  assert.strictEqual(w.current, null);
+  const c = E.conditionsAt(w, new Date(2026, 10, 2, 13).getTime());
+  assert.strictEqual(c.air, 12);
+  assert.ok(c.feels <= 12);
+  assert.ok(c.water > 10);
+});
 console.log(`\n${passed} tests passed`);

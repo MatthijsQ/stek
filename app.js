@@ -12,6 +12,8 @@
     history: `${API}?latitude=${LAT}&longitude=${LON}&daily=temperature_2m_mean&past_days=60&forecast_days=4&timezone=${TZ}`,
     marine: `https://marine-api.open-meteo.com/v1/marine?latitude=53.45&longitude=6.9&current=sea_surface_temperature&timezone=${TZ}`
   };
+  const addDays = (n) => E.dateKey(Date.now() + n * DAY);
+  const backupUrl = (from, to) => `https://api.brightsky.dev/weather?lat=${LAT}&lon=${LON}&date=${addDays(from)}&last_date=${addDays(to)}&tz=Europe/Amsterdam`;
   const LINKS = { visplanner: 'https://visplanner.nl', waterinfo: 'https://waterinfo.rws.nl', sportvisunie: 'https://www.sportvisunie.nl/nl' };
 
   const state = {
@@ -98,21 +100,44 @@
       return await r.json();
     } finally { clearTimeout(timer); }
   }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function getWithRetry(url) {
+    try { return await getJSON(url); } catch (e) { await wait(1500); return getJSON(url); }
+  }
+  async function loadPrimary() {
+    const [fc, hist, marine] = await Promise.allSettled([getWithRetry(URLS.forecast), getWithRetry(URLS.history), getJSON(URLS.marine)]);
+    if (fc.status !== 'fulfilled') throw fc.reason;
+    const w = E.parseWeather(fc.value, hist.status === 'fulfilled' ? hist.value : null, marine.status === 'fulfilled' ? marine.value : null);
+    w.source = 'open-meteo';
+    if (hist.status !== 'fulfilled') {
+      if (state.weather && state.weather.dailyMeans && state.weather.dailyMeans.length > 10) { w.dailyTimes = state.weather.dailyTimes; w.dailyMeans = state.weather.dailyMeans; }
+      else {
+        const back = await getJSON(backupUrl(-30, 3)).catch(() => null);
+        if (back) { const b = E.fromBrightSky(back, null, LAT, LON); w.dailyTimes = b.history.daily.time; w.dailyMeans = b.history.daily.temperature_2m_mean; }
+      }
+    }
+    return w;
+  }
+  async function loadBackup() {
+    const [fc, hist, marine] = await Promise.allSettled([getJSON(backupUrl(-3, 4)), getJSON(backupUrl(-30, 0)), getJSON(URLS.marine)]);
+    if (fc.status !== 'fulfilled') throw fc.reason;
+    const b = E.fromBrightSky(fc.value, hist.status === 'fulfilled' ? hist.value : null, LAT, LON);
+    const w = E.parseWeather(b.forecast, b.history, marine.status === 'fulfilled' ? marine.value : null);
+    w.source = 'brightsky';
+    return w;
+  }
   async function refresh(manual) {
     if (state.loading) return;
     state.loading = true; state.error = null; paintStatus();
     $('[data-act="refresh"]').classList.add('spin');
     try {
-      const [fc, hist, marine] = await Promise.allSettled([getJSON(URLS.forecast), getJSON(URLS.history), getJSON(URLS.marine)]);
-      if (fc.status !== 'fulfilled') throw fc.reason;
-      const prev = state.weather;
-      const w = E.parseWeather(fc.value, hist.status === 'fulfilled' ? hist.value : null, marine.status === 'fulfilled' ? marine.value : null);
-      if (hist.status !== 'fulfilled' && prev) { w.dailyTimes = prev.dailyTimes; w.dailyMeans = prev.dailyMeans; }
+      let w;
+      try { w = await loadPrimary(); } catch (e) { w = await loadBackup(); }
       state.weather = w;
       saveKV('weather', w);
       if (manual) toast('Weather updated');
     } catch (e) {
-      state.error = navigator.onLine === false ? 'You are offline' : 'Could not reach the weather service';
+      state.error = navigator.onLine === false ? 'You are offline' : 'Could not reach the weather services';
       if (manual) toast(state.error, state.weather ? 'Showing the last saved weather.' : 'Check your connection and try again.');
     }
     state.loading = false;
@@ -125,7 +150,7 @@
     if (!w) { el.textContent = state.error || ''; return; }
     const age = Date.now() - w.fetchedAt;
     const stamp = (age < DAY ? '' : weekday(w.fetchedAt) + ' ') + clock(w.fetchedAt);
-    el.textContent = state.error ? `${state.error}, saved ${stamp}` : `Live weather, updated ${stamp}`;
+    el.textContent = state.error ? `${state.error}, saved ${stamp}` : `Live${w.source === 'brightsky' ? ' (backup source)' : ' weather'}, updated ${stamp}`;
   }
   const cond = (t, type) => E.conditionsAt(state.weather, t, { type: type || 'shipcanal', measure: state.measure });
 
@@ -245,7 +270,7 @@
       <section style="display:grid;gap:8px"><div class="sectionhead"><h2>Conditions</h2><span class="aside num">${esc(E.weatherText(c.code))}</span></div>${conditionsGrid(c, w)}</section>
       <section style="display:grid;gap:8px"><div class="sectionhead"><h2>Every fish</h2><span class="aside">Tap for the guide</span></div>${speciesRows(rows)}</section>
       ${learningBlock()}
-      <p class="foot">Scores are estimates built from general fishing knowledge and your log. Weather by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>. Always check the rules in the <a href="${LINKS.visplanner}" target="_blank" rel="noopener">VISplanner</a>.</p>`;
+      <p class="foot">Scores are estimates built from general fishing knowledge and your log. Weather by ${w.source === 'brightsky' ? '<a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a> with data from Deutscher Wetterdienst' : '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>'}. Always check the rules in the <a href="${LINKS.visplanner}" target="_blank" rel="noopener">VISplanner</a>.</p>`;
   }
   function statusPill(s) {
     if (s.own) return '<span class="pill info">Your spot</span>';
@@ -273,7 +298,7 @@
       <div class="cell"><span class="label">Sunrise / sunset</span><span class="val num" style="font-size:24px">${riseSet}</span><span class="sub">${esc({ dawn: 'Dawn window', dusk: 'Dusk window', day: 'Daytime', night: 'Dark' }[c.daypart])}</span></div>
       <div class="cell"><span class="label">Moon</span><span class="val" style="font-size:24px">${round(c.moon.illum * 100, 0)}<small> %</small></span><span class="sub">${esc(c.moon.name)}</span></div>
       <div class="cell"><span class="label">Humidity</span><span class="val">${round(c.rh, 0)}<small> %</small></span><span class="sub">Dew point ${round(c.dew, 0)} °C</span></div>
-      <div class="cell"><span class="label">Visibility</span><span class="val" style="font-size:24px">${k(c.vis)}</span><span class="sub">UV index ${round(c.uv, 0)}</span></div>
+      <div class="cell"><span class="label">Visibility</span><span class="val" style="font-size:24px">${k(c.vis)}</span><span class="sub">${c.uv === null || c.uv === undefined ? 'At the moment shown' : 'UV index ' + round(c.uv, 0)}</span></div>
       ${w.sst !== null && w.sst !== undefined ? `<div class="cell"><span class="label">Sea at the coast</span><span class="val">${round(w.sst, 1)}<small> °C</small></span><span class="sub">Reference only</span></div>` : ''}
       <a class="cell tap ${w.sst !== null && w.sst !== undefined ? '' : 'wide'}" href="${LINKS.waterinfo}" target="_blank" rel="noopener"><span class="label">Level and current</span><span class="val" style="font-size:24px">Waterinfo</span><span class="sub">No live feed yet. Open the official site.</span></a>
     </div>`;
@@ -633,7 +658,7 @@
       <p class="small muted num">${state.backupAt ? 'Last backup: ' + esc(dayLabel(state.backupAt)) : 'No backup yet.'} ${state.records.length} entries.</p></section>
       ${canInstall ? '<button class="btn primary" data-act="install">Add to home screen</button>' : ''}
       <section class="block"><h3>About the data</h3><ul style="margin:0;padding-left:20px;display:grid;gap:6px" class="small">
-        <li>Live weather comes from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0).</li>
+        <li>Live weather comes from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0). If it is down, Stek switches to <a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a>, using Deutscher Wetterdienst data, with its forecast for Groningen. Its past days come from stations 40 to 50 km away, so the water estimate is rougher.</li>
         <li>Water temperature is an estimate, not a measurement.</li>
         <li>Current and water level are not measured in the app. Open <a href="${LINKS.waterinfo}" target="_blank" rel="noopener">Waterinfo</a> for official readings.</li>
         <li>Bite scores are informed estimates from general fishing knowledge, plus your own log.</li>

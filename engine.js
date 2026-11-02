@@ -83,7 +83,96 @@
     return { age, phase, illum, name: names[Math.round(phase * 8) % 8] };
   }
 
+  /* ---------- Backup weather source (Bright Sky / DWD) ---------- */
+  function sunTimes(ms, lat, lon) {
+    /* NOAA sunrise equation, good to about a minute at this latitude. */
+    const d = new Date(ms), rad = Math.PI / 180;
+    const noonUTC = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+    const n = Math.round(noonUTC / DAY + 2440587.5 - 2451545.0 + 0.0008 - .5);
+    const J = n - lon / 360;
+    const M = (357.5291 + 0.98560028 * J) % 360;
+    const C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+    const L = (M + C + 180 + 102.9372) % 360;
+    const transit = 2451545.0 + J + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * L * rad);
+    const dec = Math.asin(Math.sin(L * rad) * Math.sin(23.4397 * rad));
+    const w = Math.acos((Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(dec)) / (Math.cos(lat * rad) * Math.cos(dec))) / rad;
+    const toMs = (jd) => (jd - 2440587.5) * DAY;
+    return { rise: toMs(transit - w / 360), set: toMs(transit + w / 360) };
+  }
+  function feelsLike(t, v) {
+    if (t === null || v === null || t === undefined || v === undefined) return t;
+    if (t <= 10 && v > 4.8) { const p = Math.pow(v, .16); return 13.12 + .6215 * t - 11.37 * p + .3965 * t * p; }
+    return t;
+  }
+  function humidityFrom(t, dew) {
+    if (t === null || dew === null || t === undefined || dew === undefined) return null;
+    const m = (x) => Math.exp((17.625 * x) / (243.04 + x));
+    return clamp(100 * m(dew) / m(t), 0, 100);
+  }
+  function conditionCode(row) {
+    const c = row.cloud_cover === null || row.cloud_cover === undefined ? 50 : row.cloud_cover;
+    switch (row.condition) {
+      case 'thunderstorm': return 95;
+      case 'rain': return 61;
+      case 'sleet': return 66;
+      case 'snow': return 71;
+      case 'hail': return 77;
+      case 'fog': return 45;
+      default: return c < 10 ? 0 : c < 35 ? 1 : c < 75 ? 2 : 3;
+    }
+  }
+  function fromBrightSky(forecastJson, historyJson, lat, lon) {
+    const rows = [...forecastJson.weather].filter((r) => r.timestamp).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const hourly = { time: [], temperature_2m: [], apparent_temperature: [], dew_point_2m: [], relative_humidity_2m: [], precipitation: [], precipitation_probability: [], weather_code: [], cloud_cover: [], pressure_msl: [], wind_speed_10m: [], wind_gusts_10m: [], wind_direction_10m: [], visibility: [], uv_index: [], shortwave_radiation: [] };
+    const days = new Set();
+    rows.forEach((r) => {
+      const ms = new Date(r.timestamp).getTime();
+      hourly.time.push(ms);
+      hourly.temperature_2m.push(r.temperature);
+      hourly.apparent_temperature.push(feelsLike(r.temperature, r.wind_speed));
+      hourly.dew_point_2m.push(r.dew_point);
+      hourly.relative_humidity_2m.push(r.relative_humidity !== null && r.relative_humidity !== undefined ? r.relative_humidity : humidityFrom(r.temperature, r.dew_point));
+      hourly.precipitation.push(r.precipitation || 0);
+      hourly.precipitation_probability.push(r.precipitation_probability || 0);
+      hourly.weather_code.push(conditionCode(r));
+      hourly.cloud_cover.push(r.cloud_cover);
+      hourly.pressure_msl.push(r.pressure_msl);
+      hourly.wind_speed_10m.push(r.wind_speed);
+      hourly.wind_gusts_10m.push(r.wind_gust_speed);
+      hourly.wind_direction_10m.push(r.wind_direction);
+      hourly.visibility.push(r.visibility);
+      hourly.uv_index.push(null);
+      hourly.shortwave_radiation.push(r.solar === null || r.solar === undefined ? 0 : r.solar * 1000);
+      days.add(dateKey(ms));
+    });
+    const daily = { time: [], sunrise: [], sunset: [] };
+    [...days].sort().forEach((k) => {
+      const [y, m, d] = k.split('-').map(Number), sun = sunTimes(new Date(y, m - 1, d, 12).getTime(), lat, lon);
+      daily.time.push(k); daily.sunrise.push(sun.rise); daily.sunset.push(sun.set);
+    });
+    const sums = {};
+    [].concat(historyJson && historyJson.weather ? historyJson.weather : [], rows).forEach((r) => {
+      if (r.temperature === null || r.temperature === undefined) return;
+      const k = dateKey(new Date(r.timestamp).getTime()), e = sums[k] = sums[k] || { n: 0, sum: 0 };
+      e.n++; e.sum += r.temperature;
+    });
+    const hist = Object.keys(sums).sort();
+    return {
+      forecast: { hourly, daily },
+      history: { daily: { time: hist, temperature_2m_mean: hist.map((k) => sums[k].sum / sums[k].n) } }
+    };
+  }
+
   /* ---------- Parse the weather service's response ---------- */
+  function filled(arr) {
+    /* Carry the last known value over any gaps, so one missing hour cannot break a trend. */
+    if (!arr) return arr;
+    const out = arr.slice();
+    let last = out.find((v) => v !== null && v !== undefined);
+    if (last === undefined) return out;
+    for (let i = 0; i < out.length; i++) { if (out[i] === null || out[i] === undefined) out[i] = last; else last = out[i]; }
+    return out;
+  }
   function parseWeather(forecast, history, marine, now) {
     const h = forecast.hourly, time = h.time.map((s) => new Date(s).getTime());
     const hist = (history && history.daily) || {};
@@ -94,10 +183,10 @@
     return {
       fetchedAt: now || Date.now(),
       hourly: {
-        time, temp: h.temperature_2m, feels: h.apparent_temperature, dew: h.dew_point_2m, rh: h.relative_humidity_2m,
-        precip: h.precipitation, pprob: h.precipitation_probability, code: h.weather_code, cloud: h.cloud_cover,
-        press: h.pressure_msl, wind: h.wind_speed_10m, gust: h.wind_gusts_10m, dir: h.wind_direction_10m,
-        vis: h.visibility, uv: h.uv_index, rad: h.shortwave_radiation
+        time, temp: filled(h.temperature_2m), feels: filled(h.apparent_temperature), dew: filled(h.dew_point_2m), rh: filled(h.relative_humidity_2m),
+        precip: h.precipitation, pprob: h.precipitation_probability, code: filled(h.weather_code), cloud: filled(h.cloud_cover),
+        press: filled(h.pressure_msl), wind: filled(h.wind_speed_10m), gust: filled(h.wind_gusts_10m), dir: filled(h.wind_direction_10m),
+        vis: filled(h.visibility), uv: h.uv_index, rad: h.shortwave_radiation
       },
       sun,
       dailyTimes: hist.time || fd.time,
@@ -572,7 +661,7 @@
 
   return {
     HOUR, DAY, clamp, dateKey, speciesById, lastSaturdayOfMay, baitClosed, closedStatus, isNightPeriod, legalCheck,
-    beaufort, compass, weatherText, moon, parseWeather, waterSeries, waterAt, pressClass, PRESS_TEXT, windClass, tempBand,
+    beaufort, compass, weatherText, moon, sunTimes, fromBrightSky, parseWeather, waterSeries, waterAt, pressClass, PRESS_TEXT, windClass, tempBand,
     conditionsAt, factorValues, scoreSpecies, scoreBand, explainFactors, headlineReasons, howTo, howBand,
     distanceKm, bikeMinutes, nearestSpot, windAdvice, rankSpots, groupTrips, personalAdjust, spotLifter, LEARN_MIN, LEARN_FULL,
     bestWindow, isoWeek, weekStreak, bestStreak, computeStats, ACHIEVEMENTS, recordXP, computeProgress, catchAdvice

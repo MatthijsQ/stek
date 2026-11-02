@@ -27,18 +27,26 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, colorScheme: 'light', acceptDownloads: true, geolocation: { latitude: 53.2165, longitude: 6.5783 }, permissions: ['geolocation'] });
   let blockWeather = false, weatherHits = 0;
+  let openMeteoDown = false;
   await ctx.route(/open-meteo\.com/, (route) => {
     weatherHits++;
     if (blockWeather) return route.abort();
     const u = route.request().url();
+    if (openMeteoDown && !u.includes('marine')) return route.fulfill({ status: 503, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: '{"error":true,"reason":"The service is overloaded"}' });
     const body = u.includes('marine') ? { current: { sea_surface_temperature: 12.4 } } : u.includes('temperature_2m_mean') ? history() : forecast();
     route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
+  });
+  await ctx.route(/brightsky\.dev/, (route) => {
+    if (blockWeather) return route.abort();
+    const f = forecast().hourly;
+    const weather = f.time.map((t, i) => ({ timestamp: new Date(t).toISOString(), temperature: f.temperature_2m[i], dew_point: 7.5, relative_humidity: null, precipitation: 0, precipitation_probability: 10, cloud_cover: 80, pressure_msl: f.pressure_msl[i], wind_speed: 15, wind_gust_speed: 26, wind_direction: 250, visibility: 20000, solar: 0.05, condition: 'dry' }));
+    route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ weather }) });
   });
   await ctx.route(/openstreetmap\.org/, (r) => r.abort());
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => { if (m.type() === 'error' && !/ERR_FAILED|tile.openstreetmap|net::/.test(m.text())) errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !/ERR_FAILED|tile.openstreetmap|net::|status of 503/.test(m.text())) errors.push(m.text()); });
   const shot = (n) => page.screenshot({ path: path.join(out, n + '.png'), fullPage: true });
   const noOverflow = async (label) => { const o = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); assert(o <= 0, 'no sideways scroll: ' + label + ' (' + o + ')'); };
 
@@ -195,12 +203,24 @@ const assert = (ok, msg) => { if (!ok) throw new Error('FAILED: ' + msg); consol
   await shot('09-today-dark');
   await page.emulateMedia({ colorScheme: 'light' });
 
+  // Main weather service down: switch to the backup
+  openMeteoDown = true;
+  await page.click('[data-act="refresh"]');
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('backup source'), null, { timeout: 12000 });
+  assert(await page.locator('.hero h1').count() === 1, 'backup weather runs the whole app');
+  assert((await page.textContent('.foot')).includes('Deutscher Wetterdienst'), 'backup source is credited');
+  openMeteoDown = false;
+  await page.click('[data-act="refresh"]');
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('Live weather'), null, { timeout: 12000 });
+  assert(true, 'returns to the main weather service');
+
   // Weather offline: saved copy
   await page.waitForTimeout(800);
   blockWeather = true;
   await page.click('[data-act="refresh"]');
   await page.waitForTimeout(400);
-  assert((await page.textContent('#status')).includes('saved'), 'offline weather message: ' + (await page.textContent('#status')));
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('saved'), null, { timeout: 12000 });
+  assert(true, 'offline weather message: ' + (await page.textContent('#status')));
   assert(await page.locator('.hero h1').count() === 1, 'keeps showing saved weather');
 
   // Full offline
