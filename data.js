@@ -212,9 +212,9 @@
   ];
 
   const LEVELS = [
-    [0, 'Worm Drowner'], [100, 'Float Watcher'], [300, 'Bank Sitter'], [600, 'Canal Regular'],
-    [1000, 'Diep Explorer'], [1500, 'Shadow Reader'], [2200, 'Zander Whisperer'], [3000, 'Pike Tamer'],
-    [4000, 'Stek Keeper'], [5500, 'Reitdiep Legend'], [7500, 'Master of the Stad'], [10000, 'Grand Master of the Stad']
+    [0, 'Rookie Angler'], [100, 'Casual Angler'], [300, 'Apprentice Angler'], [600, 'Keen Angler'],
+    [1000, 'Intermediate Angler'], [1500, 'Experienced Angler'], [2200, 'Advanced Angler'], [3000, 'Expert Angler'],
+    [4000, 'Master Angler'], [5500, 'Grandmaster Angler'], [7500, 'Legendary Angler'], [10000, 'Mythical Angler']
   ];
 
   const LEGAL = {

@@ -587,24 +587,24 @@
     { id: 'zander60', name: 'Zander Over 60', text: 'Catch a zander of 60 cm or more.', xp: 200, test: (s) => pbLen(s, 'zander') >= 60 },
     { id: 'zander80', name: 'Big Glass Eyes', text: 'Catch a zander of 80 cm or more.', xp: 500, test: (s) => pbLen(s, 'zander') >= 80 },
     { id: 'perch40', name: 'Forty Stripes', text: 'Catch a perch of 40 cm or more.', xp: 300, test: (s) => pbLen(s, 'perch') >= 40 },
-    { id: 'bream50', name: 'Dustbin Lid', text: 'Catch a bream of 50 cm or more.', xp: 200, test: (s) => pbLen(s, 'bream') >= 50 },
+    { id: 'bream50', name: 'Big Bream', text: 'Catch a bream of 50 cm or more.', xp: 200, test: (s) => pbLen(s, 'bream') >= 50 },
     { id: 'carp10', name: 'Double-Figure Carp', text: 'Catch a carp of 10 kg or more.', xp: 400, test: (s) => pbWeight(s, 'carp') >= 10000 },
     { id: 'early', name: 'Before the Bakery', text: 'Catch a fish within an hour of sunrise.', xp: 75, test: (s) => anyCatch(s, (r) => r.cond && r.cond.sunrise && Math.abs(r.ts - r.cond.sunrise) <= HOUR) },
     { id: 'dusk', name: 'Last Cast', text: 'Catch a fish within an hour of sunset.', xp: 75, test: (s) => anyCatch(s, (r) => r.cond && r.cond.sunset && Math.abs(r.ts - r.cond.sunset) <= HOUR) },
     { id: 'night', name: 'Night Shift', text: 'Catch a fish in the night period.', xp: 100, test: (s) => anyCatch(s, (r) => r.cond && r.cond.night) },
     { id: 'cold', name: 'Numb Fingers', text: 'Catch a fish in water under 6 °C.', xp: 150, test: (s) => anyCatch(s, (r) => r.cond && typeof r.cond.water === 'number' && r.cond.water < 6) },
-    { id: 'wind', name: 'Blown Sideways', text: 'Catch a fish in 6 Bft of wind or more.', xp: 150, test: (s) => anyCatch(s, (r) => r.cond && r.cond.wind >= 39) },
+    { id: 'wind', name: 'Fighting Mother Nature', text: 'Catch a fish in 6 Bft of wind or more.', xp: 150, test: (s) => anyCatch(s, (r) => r.cond && r.cond.wind >= 39) },
     { id: 'rain', name: 'Soaked', text: 'Catch a fish in the rain.', xp: 50, test: (s) => anyCatch(s, (r) => r.cond && r.cond.precip >= .3) },
     { id: 'against', name: 'Against the Odds', text: 'Catch a fish while its score is under 30.', xp: 150, test: (s) => anyCatch(s, (r) => r.forecast && r.forecast.speciesScore < 30) },
     { id: 'called', name: 'Called It', text: 'Catch the top pick 5 times.', xp: 200, test: (s) => s.catches.filter((r) => r.forecast && r.forecast.bestId === r.speciesId).length >= 5 },
-    { id: 'spots5', name: 'Bike Miles', text: 'Fish 5 different spots.', xp: 100, test: (s) => s.spots.size >= 5 },
-    { id: 'spots12', name: 'Knows Every Bank', text: 'Fish 12 different spots.', xp: 300, test: (s) => s.spots.size >= 12 },
+    { id: 'spots5', name: 'Explorer', text: 'Fish 5 different spots.', xp: 100, test: (s) => s.spots.size >= 5 },
+    { id: 'spots12', name: 'The All Knowing', text: 'Fish 12 different spots.', xp: 300, test: (s) => s.spots.size >= 12 },
     { id: 'streak4', name: 'Regular', text: 'Log a trip 4 weeks in a row.', xp: 150, test: (s) => s.longestStreak >= 4 },
-    { id: 'streak12', name: 'Season Pass', text: 'Log a trip 12 weeks in a row.', xp: 500, test: (s) => s.longestStreak >= 12 },
+    { id: 'streak12', name: 'Hooked', text: 'Log a trip 12 weeks in a row.', xp: 500, test: (s) => s.longestStreak >= 12 },
     { id: 'blank3', name: 'Honest Angler', text: 'Log 3 trips with no catch.', xp: 75, test: (s) => s.blanks.length >= 3 },
-    { id: 'blank10', name: 'Scientist', text: 'Log 10 trips with no catch.', xp: 200, test: (s) => s.blanks.length >= 10 },
+    { id: 'blank10', name: 'Unlucky Streak', text: 'Log 10 trips with no catch.', xp: 200, test: (s) => s.blanks.length >= 10 },
     { id: 'photo', name: 'Proof', text: 'Add photos to 10 catches.', xp: 100, test: (s) => s.photos >= 10 },
-    { id: 'learner', name: 'App Trained', text: 'Log 25 trips so your scores use your full history.', xp: 300, test: (s) => s.trips.length >= 25 }
+    { id: 'learner', name: 'Contributor', text: 'Log 25 trips so your scores use your full history.', xp: 300, test: (s) => s.trips.length >= 25 }
   ];
   function recordXP(r, ctx) {
     if (r.type === 'blank') return 25;
