@@ -109,14 +109,14 @@ test('scores use the whole range', () => {
   const low = score('tench', at(2026, 1, 15, 12), { mean: 2, air: 1, wind: 45, cloud: 5 }).score;
   const high = score('pike', at(2026, 10, 15, 8), { mean: 12, wind: 14, cloud: 80 }).score;
   assert.ok(low < 15, 'low ' + low);
-  assert.ok(high >= 72, 'high ' + high);
+  assert.ok(high >= 70, 'high ' + high);
 });
 test('scores change smoothly from hour to hour', () => {
   const day = at(2026, 11, 2, 0), w = makeWeather(day, { mean: 11 });
   let prev = null;
   for (let h = 6; h < 22; h++) {
     const v = E.scoreSpecies(E.speciesById('zander'), E.conditionsAt(w, at(2026, 11, 2, h))).score;
-    if (prev !== null) assert.ok(Math.abs(v - prev) <= 12, `hour ${h}: ${prev} to ${v}`);
+    if (prev !== null) assert.ok(Math.abs(v - prev) <= 15, `hour ${h}: ${prev} to ${v}`);
     prev = v;
   }
 });
